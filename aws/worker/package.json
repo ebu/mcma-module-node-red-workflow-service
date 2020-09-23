@@ -1,0 +1,22 @@
+{
+    "name": "node-red-workflow-service-worker",
+    "version": "0.0.0",
+    "private": true,
+    "license": "Apache-2.0",
+    "dependencies": {
+        "@mcma/aws-client": "0.13.9",
+        "@mcma/aws-dynamodb": "0.13.9",
+        "@mcma/aws-logger": "0.13.9",
+        "@mcma/aws-s3": "0.13.9",
+        "@mcma/core": "0.13.9",
+        "@mcma/client": "0.13.9",
+        "@mcma/data": "0.13.9",
+        "@mcma/worker": "0.13.9",
+        "aws-sdk": "^2.631.0",
+        "aws-xray-sdk": "^3.0.0"
+    },
+    "devDependencies": {
+        "@types/aws-lambda": "^8.10.51",
+        "@types/node": "^12.12.55"
+    }
+}
