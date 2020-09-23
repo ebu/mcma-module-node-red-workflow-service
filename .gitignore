@@ -1,1 +1,11 @@
-/.idea/
+.idea
+.gradle
+.terraform
+build
+node_modules
+gradle.properties
+aws-credentials.json
+terraform.output.json
+terraform.tfstate
+terraform.tfstate.backup
+terraform.tfvars.json
