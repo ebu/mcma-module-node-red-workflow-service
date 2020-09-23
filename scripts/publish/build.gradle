@@ -1,0 +1,16 @@
+apply from: "${project.rootDir}/gradle-tasks-for-scripts.gradle"
+
+run {
+    dependsOn ":build"
+
+    environment "MODULE_REPOSITORY", moduleRepository
+    def props = new Properties()
+    file("${project.rootDir}/version.properties").withInputStream {
+        props.load(it)
+    }
+    environment props
+}
+
+task publish {
+    dependsOn run
+}
