@@ -1,0 +1,31 @@
+import org.apache.tools.ant.filters.ReplaceTokens
+
+task copyModuleJSON(type: Copy) {
+    inputs.file "${project.rootDir}/version.properties"
+    from "module.json"
+    into "build/staging"
+    def props = new Properties()
+    file("${project.rootDir}/version.properties").withInputStream {
+        props.load(it)
+    }
+    filter(ReplaceTokens, tokens: props)
+}
+
+task copyTerraform(type: Copy) {
+    from "src"
+    into "build/staging"
+}
+
+task build(type: Zip) {
+    dependsOn copyModuleJSON
+    dependsOn copyTerraform
+    from "build/staging"
+    archiveFileName = "module.zip"
+    destinationDirectory = file("build/dist")
+    preserveFileTimestamps = false
+    reproducibleFileOrder = true
+}
+
+task clean(type: Delete) {
+    delete "build"
+}
