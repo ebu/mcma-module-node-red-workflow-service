@@ -1,0 +1,64 @@
+{
+    "namespace": "@MODULE_NAMESPACE@",
+    "name": "@MODULE_NAME@",
+    "provider": "aws",
+    "version": "@MODULE_VERSION@",
+    "displayName": "Node-RED workflow service",
+    "description": "The Node-RED workflow services is leveraging Node-RED to orchestrate and run workflows",
+    "inputParameters": [
+        {
+            "name": "module_prefix",
+            "type": "string"
+        },
+        {
+            "name": "stage_name",
+            "type": "string"
+        },
+        {
+            "name": "log_group_name",
+            "type": "string"
+        },
+        {
+            "name": "aws_account_id",
+            "type": "string"
+        },
+        {
+            "name": "aws_region",
+            "type": "string"
+        },
+        {
+            "name": "service_registry",
+            "type": "object"
+        }
+    ],
+    "outputParameters": [
+        {
+            "name": "auth_type",
+            "type": "string"
+        },
+        {
+            "name": "job_assignments_url",
+            "type": "string"
+        }
+    ],
+    "deploymentActions": [
+        {
+            "type": "ManagedResource",
+            "data": {
+                "resourceName": "service",
+                "resource": {
+                    "@type": "Service",
+                    "name": "Node-RED workflow service",
+                    "resources": [
+                        {
+                            "@type": "ResourceEndpoint",
+                            "resourceType": "JobAssignment",
+                            "httpEndpoint": "${job_assignments_url}"
+                        }
+                    ],
+                    "authType": "${auth_type}"
+                }
+            }
+        }
+    ]
+}
