@@ -9,3 +9,4 @@ terraform.output.json
 terraform.tfstate
 terraform.tfstate.backup
 terraform.tfvars.json
+*.ovpn
