@@ -106,8 +106,3 @@ variable "ecs_service_security_groups" {
   type        = list(string)
   description = "Security groups in which Node-RED container will be placed"
 }
-
-variable "ecs_task_execution_role_arn" {
-  type        = string
-  description = "Execution role for Node-RED container"
-}

@@ -29,7 +29,7 @@ resource "aws_iam_policy" "lambda_execution" {
     Version   = "2012-10-17",
     Statement = concat([
       {
-        Sid      : "AllowLambdaWritingToLogs"
+        Sid      : "AllowWritingToLogs"
         Effect   : "Allow",
         Action   : "logs:*",
         Resource : "*"
@@ -73,11 +73,32 @@ resource "aws_iam_policy" "lambda_execution" {
         Resource : "arn:aws:lambda:${var.aws_region}:${var.aws_account_id}:function:${local.worker_lambda_name}"
       },
       {
-        Sid      : "AllowInvokingApiGateway"
+        Sid      : "AllowInvokingApiGateway",
         Effect   : "Allow",
         Action   : "execute-api:Invoke",
         Resource : "arn:aws:execute-api:*:*:*"
       },
+      {
+        Sid : "AllowRunningInVPC",
+        Effect: "Allow",
+        Action: [
+          "ec2:DescribeNetworkInterfaces",
+          "ec2:CreateNetworkInterface",
+          "ec2:DeleteNetworkInterface"
+        ]
+        Resource: "*"
+      },
+      {
+        Sid: "MountEFS",
+        Effect: "Allow",
+        Action: [
+          "elasticfilesystem:ClientMount",
+          "elasticfilesystem:ClientRootAccess",
+          "elasticfilesystem:ClientWrite",
+          "elasticfilesystem:DescribeMountTargets"
+        ]
+        Resource: aws_efs_file_system.nodered.arn
+      }
     ],
     var.xray_tracing_enabled ?
     [{
@@ -157,6 +178,16 @@ resource "aws_lambda_function" "api_handler" {
     mode = var.xray_tracing_enabled ? "Active" : "PassThrough"
   }
 
+  vpc_config {
+    subnet_ids         = var.ecs_service_subnets
+    security_group_ids = var.ecs_service_security_groups
+  }
+
+  file_system_config {
+    arn              = aws_efs_access_point.nodered.arn
+    local_mount_path = "/mnt/nodered"
+  }
+
   tags = var.tags
 }
 
@@ -180,11 +211,11 @@ resource "aws_lambda_function" "worker" {
 
   environment {
     variables = {
-      LogGroupName          = var.log_group_name
-      TableName             = aws_dynamodb_table.service_table.name
-      PublicUrl             = local.service_url
-      ServicesUrl           = var.service_registry.services_url
-      ServicesAuthType      = var.service_registry.auth_type
+      LogGroupName     = var.log_group_name
+      TableName        = aws_dynamodb_table.service_table.name
+      PublicUrl        = local.service_url
+      ServicesUrl      = var.service_registry.services_url
+      ServicesAuthType = var.service_registry.auth_type
     }
   }
 
@@ -198,6 +229,16 @@ resource "aws_lambda_function" "worker" {
 
   tracing_config {
     mode = var.xray_tracing_enabled ? "Active" : "PassThrough"
+  }
+
+  vpc_config {
+    subnet_ids         = var.ecs_service_subnets
+    security_group_ids = var.ecs_service_security_groups
+  }
+
+  file_system_config {
+    arn              = aws_efs_access_point.nodered.arn
+    local_mount_path = "/mnt/nodered"
   }
 
   tags = var.tags

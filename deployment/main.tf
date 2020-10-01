@@ -63,5 +63,4 @@ module "nodered_workflow_service" {
   ecs_cluster_id = aws_ecs_cluster.main.id
   ecs_service_subnets = [aws_subnet.private.id]
   ecs_service_security_groups = [aws_default_security_group.default.id]
-  ecs_task_execution_role_arn = aws_iam_role.ecs_task_execution.arn
 }
