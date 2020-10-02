@@ -21,7 +21,7 @@ resource "aws_cloudwatch_log_group" "main" {
 #########################
 
 module "service_registry_aws" {
-  source = "https://ch-ebu-mcma-module-repository.s3.eu-central-1.amazonaws.com/ebu/service-registry/aws/0.13.9/module.zip"
+  source = "https://ch-ebu-mcma-module-repository.s3.eu-central-1.amazonaws.com/ebu/service-registry/aws/0.13.10/module.zip"
 
   aws_account_id = var.aws_account_id
   aws_region     = var.aws_region
@@ -35,7 +35,7 @@ module "service_registry_aws" {
 #########################
 
 module "job_processor_aws" {
-  source = "https://ch-ebu-mcma-module-repository.s3.eu-central-1.amazonaws.com/ebu/job-processor/aws/0.13.9/module.zip"
+  source = "https://ch-ebu-mcma-module-repository.s3.eu-central-1.amazonaws.com/ebu/job-processor/aws/0.13.10/module.zip"
 
   aws_account_id   = var.aws_account_id
   aws_region       = var.aws_region
