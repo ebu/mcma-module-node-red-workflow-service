@@ -3,12 +3,10 @@ import * as AWS from "aws-sdk";
 
 import { EnvironmentVariableProvider } from "@mcma/core";
 import { AuthProvider, ResourceManagerProvider } from "@mcma/client";
-import { ProviderCollection, Worker, WorkerRequestProperties } from "@mcma/worker";
+import { ProviderCollection, Worker, WorkerRequest, WorkerRequestProperties } from "@mcma/worker";
 import { AwsCloudWatchLoggerProvider } from "@mcma/aws-logger";
 import { awsV4Auth } from "@mcma/aws-client";
 import { DynamoDbTableProvider } from "@mcma/aws-dynamodb";
-import { execSync } from "child_process";
-import { writeFileSync } from "fs";
 
 const { LogGroupName } = process.env;
 
@@ -30,40 +28,21 @@ const worker =
     new Worker(providerCollection);
 
 export async function handler(event: WorkerRequestProperties, context: Context) {
+    const logger = loggerProvider.get(context.awsRequestId, event.tracker);
+
     try {
-        const filename = "/mnt/nodered/xyz-test.txt"
+        logger.functionStart(context.awsRequestId);
+        logger.debug(event);
+        logger.debug(context);
 
-        writeFileSync(filename, "TEST");
+        event.contextVariables = contextVariableProvider.getAllContextVariables();
 
-        let result = execSync("ls -la /mnt/nodered");
-        console.log(result.toString());
+        await worker.doWork(new WorkerRequest(event, logger), { awsRequestId: context.awsRequestId });
     } catch (error) {
-        console.error(error);
+        logger.error("Error occurred when handling operation '" + event.operationName + "'");
+        logger.error(error.toString());
+    } finally {
+        logger.functionEnd(context.awsRequestId);
+        await loggerProvider.flush();
     }
-
-    // try {
-    //     const response = await axios.default.get("http://www.rovers.pt");
-    //
-    //     console.log(response.data);
-    // } catch (error) {
-    //     console.error(error);
-    // }
-
-    // const logger = loggerProvider.get(context.awsRequestId, event.tracker);
-    //
-    // try {
-    //     logger.functionStart(context.awsRequestId);
-    //     logger.debug(event);
-    //     logger.debug(context);
-    //
-    //     event.contextVariables = contextVariableProvider.getAllContextVariables();
-    //
-    //     await worker.doWork(new WorkerRequest(event, logger), { awsRequestId: context.awsRequestId });
-    // } catch (error) {
-    //     logger.error("Error occurred when handling operation '" + event.operationName + "'");
-    //     logger.error(error.toString());
-    // } finally {
-    //     logger.functionEnd(context.awsRequestId);
-    //     await loggerProvider.flush();
-    // }
 }

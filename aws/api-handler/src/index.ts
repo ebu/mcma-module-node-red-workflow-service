@@ -4,15 +4,22 @@ import { DynamoDbTableProvider } from "@mcma/aws-dynamodb";
 import { AwsCloudWatchLoggerProvider } from "@mcma/aws-logger";
 import { ApiGatewayApiController } from "@mcma/aws-api-gateway";
 import { invokeLambdaWorker } from "@mcma/aws-lambda-worker-invoker";
+import { listStorage, npmInstall, resetService, restartService } from "./manage-routes";
 
 const { LogGroupName } = process.env;
 
 const loggerProvider = new AwsCloudWatchLoggerProvider("node-red-workflow-service-api-handler", LogGroupName);
 const dbTableProvider = new DynamoDbTableProvider();
 
-const jobAssignments = new DefaultJobRouteCollection(dbTableProvider, invokeLambdaWorker);
+const routes = new DefaultJobRouteCollection(dbTableProvider, invokeLambdaWorker)
+    .addRoute("GET", "/manage/list-storage", listStorage)
+    // .addRoute("GET", "/manage/list-storage", getSettings)
+    // .addRoute("GET", "/manage/list-storage", setSettings)
+    .addRoute("POST", "/manage/reset-service", resetService)
+    .addRoute("POST", "/manage/restart-service", restartService)
+    .addRoute("POST", "/manage/npm-install", npmInstall);
 
-const restController = new ApiGatewayApiController(jobAssignments, loggerProvider);
+const restController = new ApiGatewayApiController(routes, loggerProvider);
 
 export async function handler(event: APIGatewayProxyEventV2, context: Context) {
     console.log(JSON.stringify(event, null, 2));
