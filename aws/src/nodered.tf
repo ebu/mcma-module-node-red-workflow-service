@@ -134,7 +134,7 @@ resource "aws_ecs_task_definition" "nodered" {
       logConfiguration: {
         logDriver: "awslogs",
         options: {
-          "awslogs-group": var.log_group_name,
+          "awslogs-group": var.log_group.name,
           "awslogs-region": var.aws_region,
           "awslogs-stream-prefix": "ecs-nodered"
         }
@@ -183,7 +183,7 @@ resource "aws_ecs_task_definition" "nodered" {
 
 resource "aws_ecs_service" "nodered" {
   name             = var.module_prefix
-  cluster          = var.ecs_cluster_id
+  cluster          = var.ecs_cluster.id
   task_definition  = aws_ecs_task_definition.nodered.arn
   launch_type      = "FARGATE"
   platform_version = "1.4.0"

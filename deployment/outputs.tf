@@ -12,10 +12,12 @@ output "nodered_workflow_service" {
 
 output "vpn_client_private_key" {
   value = tls_private_key.vpn_client.private_key_pem
+  sensitive = true
 }
 
 output "vpn_client_certificate" {
   value = tls_locally_signed_cert.vpn_client.cert_pem
+  sensitive = true
 }
 
 output "vpn_endpoint_id" {

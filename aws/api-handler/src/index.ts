@@ -1,4 +1,4 @@
-import { APIGatewayProxyEvent, Context } from "aws-lambda";
+import { APIGatewayProxyEventV2, Context } from "aws-lambda";
 import { DefaultJobRouteCollection } from "@mcma/api";
 import { DynamoDbTableProvider } from "@mcma/aws-dynamodb";
 import { AwsCloudWatchLoggerProvider } from "@mcma/aws-logger";
@@ -14,7 +14,7 @@ const jobAssignments = new DefaultJobRouteCollection(dbTableProvider, invokeLamb
 
 const restController = new ApiGatewayApiController(jobAssignments, loggerProvider);
 
-export async function handler(event: APIGatewayProxyEvent, context: Context) {
+export async function handler(event: APIGatewayProxyEventV2, context: Context) {
     console.log(JSON.stringify(event, null, 2));
     console.log(JSON.stringify(context, null, 2));
 

@@ -12,9 +12,13 @@ variable "stage_name" {
   description = "Stage name to be used for the API Gateway deployment"
 }
 
-variable "log_group_name" {
-  type        = string
-  description = "Log group name used by MCMA Event tracking"
+variable "log_group" {
+  type        = object({
+    id   = string
+    arn  = string
+    name = string
+  })
+  description = "Log group used by MCMA Event tracking"
 }
 
 variable "dead_letter_config_target" {
@@ -92,8 +96,11 @@ variable "xray_tracing_enabled" {
 # ECS Node-RED service configuration
 #####################################
 
-variable "ecs_cluster_id" {
-  type        = string
+variable "ecs_cluster" {
+  type        = object({
+    id   = string
+    name = string
+  })
   description = "ID of ECS cluster in which Node-RED container will be placed"
 }
 

@@ -21,13 +21,17 @@ resource "aws_cloudwatch_log_group" "main" {
 #########################
 
 module "service_registry_aws" {
-  source = "https://ch-ebu-mcma-module-repository.s3.eu-central-1.amazonaws.com/ebu/service-registry/aws/0.13.10/module.zip"
+  source = "https://ch-ebu-mcma-module-repository.s3.eu-central-1.amazonaws.com/ebu/service-registry/aws/0.13.14/module.zip"
 
   aws_account_id = var.aws_account_id
   aws_region     = var.aws_region
-  log_group_name = aws_cloudwatch_log_group.main.name
+  log_group      = aws_cloudwatch_log_group.main
   module_prefix  = "${var.global_prefix}-service-registry"
   stage_name     = var.environment_type
+}
+
+output log_group {
+  value = aws_cloudwatch_log_group.main
 }
 
 #########################
@@ -35,11 +39,11 @@ module "service_registry_aws" {
 #########################
 
 module "job_processor_aws" {
-  source = "https://ch-ebu-mcma-module-repository.s3.eu-central-1.amazonaws.com/ebu/job-processor/aws/0.13.10/module.zip"
+  source = "https://ch-ebu-mcma-module-repository.s3.eu-central-1.amazonaws.com/ebu/job-processor/aws/0.13.14/module.zip"
 
   aws_account_id   = var.aws_account_id
   aws_region       = var.aws_region
-  log_group_name   = aws_cloudwatch_log_group.main.name
+  log_group        = aws_cloudwatch_log_group.main
   module_prefix    = "${var.global_prefix}-job-processor"
   stage_name       = var.environment_type
   service_registry = module.service_registry_aws
@@ -55,12 +59,16 @@ module "nodered_workflow_service" {
 
   aws_account_id   = var.aws_account_id
   aws_region       = var.aws_region
-  log_group_name   = aws_cloudwatch_log_group.main.name
+  log_group        = aws_cloudwatch_log_group.main
   module_prefix    = "${var.global_prefix}-nodered-service"
   stage_name       = var.environment_type
   service_registry = module.service_registry_aws
 
-  ecs_cluster_id = aws_ecs_cluster.main.id
-  ecs_service_subnets = [aws_subnet.private.id]
+  ecs_cluster                 = aws_ecs_cluster.main
+  ecs_service_subnets         = [aws_subnet.private.id]
   ecs_service_security_groups = [aws_default_security_group.default.id]
+}
+
+resource "aws_s3_bucket" "bucket" {
+  bucket = var.global_prefix
 }
