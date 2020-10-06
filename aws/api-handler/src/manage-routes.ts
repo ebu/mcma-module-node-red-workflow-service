@@ -1,4 +1,4 @@
-import { writeFileSync } from "fs";
+import { readFileSync, writeFileSync } from "fs";
 import { execSync } from "child_process";
 import * as npm from "npm";
 import { ECS } from "aws-sdk";
@@ -16,6 +16,19 @@ export async function listStorage(requestContext: McmaApiRequestContext) {
     const tree = dirTree("/mnt/nodered");
 
     requestContext.setResponseBody(tree);
+}
+
+export async function getSettings(requestContext: McmaApiRequestContext) {
+    const buf = readFileSync("/mnt/nodered/settings.js");
+
+    requestContext.setResponseBody(buf.toString());
+    requestContext.response.headers["Content-Type"] = "application/javascript";
+}
+
+export async function setSettings(requestContext: McmaApiRequestContext) {
+    writeFileSync("/mnt/nodered/settings.js", requestContext.request.body);
+
+    requestContext.setResponseStatusCode(HttpStatusCode.NoContent);
 }
 
 export async function resetService(requestContext: McmaApiRequestContext) {
@@ -46,11 +59,11 @@ export async function npmInstall(requestContext: McmaApiRequestContext) {
 
         writeFileSync(filename, buf);
 
-        packages.push(filename)
+        packages.push(filename);
     } else if (Array.isArray(requestContext.request.body.packages)) {
         packages.push(...requestContext.request.body.packages);
     } else {
-        throw new McmaException("Invalid input")
+        throw new McmaException("Invalid input");
     }
 
     await installPackages(packages, logger);

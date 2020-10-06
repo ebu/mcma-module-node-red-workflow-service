@@ -4,7 +4,7 @@ import { DynamoDbTableProvider } from "@mcma/aws-dynamodb";
 import { AwsCloudWatchLoggerProvider } from "@mcma/aws-logger";
 import { ApiGatewayApiController } from "@mcma/aws-api-gateway";
 import { invokeLambdaWorker } from "@mcma/aws-lambda-worker-invoker";
-import { listStorage, npmInstall, resetService, restartService } from "./manage-routes";
+import { getSettings, listStorage, npmInstall, resetService, restartService, setSettings } from "./manage-routes";
 
 const { LogGroupName } = process.env;
 
@@ -13,8 +13,8 @@ const dbTableProvider = new DynamoDbTableProvider();
 
 const routes = new DefaultJobRouteCollection(dbTableProvider, invokeLambdaWorker)
     .addRoute("GET", "/manage/list-storage", listStorage)
-    // .addRoute("GET", "/manage/list-storage", getSettings)
-    // .addRoute("GET", "/manage/list-storage", setSettings)
+    .addRoute("GET", "/manage/settings", getSettings)
+    .addRoute("PUT", "/manage/settings", setSettings)
     .addRoute("POST", "/manage/reset-service", resetService)
     .addRoute("POST", "/manage/restart-service", restartService)
     .addRoute("POST", "/manage/npm-install", npmInstall);
