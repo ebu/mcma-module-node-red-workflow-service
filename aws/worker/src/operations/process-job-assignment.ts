@@ -1,8 +1,12 @@
+import { ECS } from "aws-sdk";
+import axios, { AxiosInstance } from "axios";
+import { v4 as uuidv4 } from "uuid";
+
 import { getTableName, JobParameterBag, JobStatus, Logger, McmaException, ProblemDetail, WorkflowJob } from "@mcma/core";
 import { ProcessJobAssignmentHelper, ProviderCollection, WorkerRequest } from "@mcma/worker";
+import { DocumentDatabaseTable } from "@mcma/data";
 
-import { NodeRedWorkflow } from "@local/nodered";
-import ECS = require("aws-sdk/clients/ecs");
+import { NodeRedFlow, NodeRedFlowConfig, NodeRedFlowNode, NodeRedWorkflow } from "@local/nodered";
 
 const { EcsClusterId, EcsNodeRedServiceName, TableName, PublicUrl } = process.env;
 
@@ -106,6 +110,13 @@ async function executeWorkflow(providers: ProviderCollection, jobAssignmentHelpe
         const ipAddress = await getServiceIpAddress(logger);
         logger.info(`Found Node-RED instance on ipAddress ${ipAddress}`);
 
+        const noderedService = axios.create({
+            baseURL: `http://${ipAddress}:1880/`
+        });
+
+        logger.info("Syncing workflows to service");
+        await syncWorkflowsToService(noderedService, table, logger);
+
         throw new McmaException("Not Implemented");
     } catch (error) {
         logger.error(`Error occurred while processing ${jobAssignmentHelper.profile.name}`);
@@ -190,4 +201,86 @@ async function getServiceIpAddress(logger: Logger): Promise<string> {
     }
 
     return privateIPv4Address;
+}
+
+async function syncWorkflowsToService(noderedService: AxiosInstance, table: DocumentDatabaseTable, logger: Logger) {
+    const existingFlows = await getExistingFlows(noderedService);
+    logger.info({ existingFlows });
+
+    const workflowsQuery = await table.query<NodeRedWorkflow>({ path: "/workflows" });
+    logger.info({ workflows: workflowsQuery.results });
+
+    const convertedFlows = workflowsQuery.results.map(workflow => convertToFlow(workflow));
+    logger.info({ convertedFlows });
+
+    const convertedFlowsMap = new Map<string, NodeRedFlow>();
+    convertedFlows.forEach(f => convertedFlowsMap.set(f.info, f));
+
+    const existingFlowsSet = new Set<string>();
+    existingFlows.forEach(f => existingFlowsSet.add(f.info));
+
+    const flowsToDelete = existingFlows.filter(flow => !convertedFlowsMap.has(flow.info));
+    const flowsToInsert = Array.from(convertedFlowsMap.values()).filter(flow => !existingFlowsSet.has(flow.info));
+
+    for (const flow of flowsToDelete) {
+        logger.info(`Deleting flow '${flow.label}`);
+        await noderedService.delete(`flow/${flow.id}`);
+    }
+    for (const flow of flowsToInsert) {
+        logger.info(`Inserting flow '${flow.label}`);
+        await noderedService.post("flow", flow);
+    }
+}
+
+function convertToFlow(workflow: NodeRedWorkflow): NodeRedFlow {
+    const tab = workflow.definition.find(n => n.type === "tab");
+    const nodes: NodeRedFlowNode[] = workflow.definition.filter(n => n.z === tab.id && !isNaN(n.x));
+    const configs: NodeRedFlowConfig[] = workflow.definition.filter(n => n.type !== "tab" && n.type !== "subflow" && isNaN(n.x));
+
+    // replacing node ids with unique ids to prevent collision when pushing to service
+    const idMap = new Map<string, string>();
+    for (const node of nodes) {
+        idMap.set(node.id, uuidv4().replace(/-/g, ""));
+        node.id = idMap.get(node.id);
+    }
+    for (const config of configs) {
+        idMap.set(config.id, uuidv4().replace(/-/g, ""));
+        config.id = idMap.get(config.id);
+        config.z = tab.id;
+    }
+    for (const node of nodes) {
+        for (let i = 0; i < node.wires.length; i++) {
+            for (let j = 0; j < node.wires[i].length; j++) {
+                node.wires[i][j] = idMap.get(node.wires[i][j]);
+            }
+        }
+        for (const key of Object.keys(node)) {
+            if (typeof node[key] === "string" && idMap.has(node[key])) {
+                node[key] = idMap.get(node[key]);
+            }
+        }
+    }
+
+    return {
+        id: tab.id,
+        label: workflow.name,
+        disabled: false,
+        info: workflow.hash,
+        nodes: nodes,
+        configs: configs,
+    };
+}
+
+async function getExistingFlows(noderedService: AxiosInstance): Promise<NodeRedFlow[]> {
+    const response = await noderedService.get("flows");
+
+    const existingFlows = [];
+    for (const node of response.data) {
+        if (node.type === "tab") {
+            const response = await noderedService.get(`flow/${node.id}`);
+            existingFlows.push(response.data);
+        }
+    }
+
+    return existingFlows;
 }

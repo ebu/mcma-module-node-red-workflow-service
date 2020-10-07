@@ -13,10 +13,12 @@
         "@mcma/data": "0.13.15-RC1",
         "@mcma/worker": "0.13.15-RC1",
         "aws-sdk": "^2.631.0",
-        "aws-xray-sdk": "^3.0.0"
+        "aws-xray-sdk": "^3.0.0",
+        "uuid": "^8.3.1"
     },
     "devDependencies": {
         "@types/aws-lambda": "^8.10.63",
-        "@types/node": "^12.12.55"
+        "@types/node": "^12.12.55",
+        "@types/uuid": "^8.3.0"
     }
 }

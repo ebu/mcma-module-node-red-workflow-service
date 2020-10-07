@@ -1,12 +1,16 @@
 import { APIGatewayProxyEventV2, Context } from "aws-lambda";
-import { DefaultJobRouteCollection, DefaultRouteCollection, McmaApiRequestContext, McmaApiRouteCollection } from "@mcma/api";
+import * as objectHash from "object-hash";
+
+import { McmaResource } from "@mcma/core";
+import { DefaultJobRouteCollection, DefaultRouteCollection, HttpStatusCode, McmaApiRequestContext, McmaApiRouteCollection } from "@mcma/api";
 import { DynamoDbTableProvider } from "@mcma/aws-dynamodb";
 import { AwsCloudWatchLoggerProvider } from "@mcma/aws-logger";
 import { ApiGatewayApiController } from "@mcma/aws-api-gateway";
 import { invokeLambdaWorker, LambdaWorkerInvoker } from "@mcma/aws-lambda-worker-invoker";
+
+import { NodeRedWorkflow, NodeRedNode } from "@local/nodered";
+
 import { getSettings, listStorage, npmInstall, resetService, restartService, setSettings } from "./manage-routes";
-import { NodeRedWorkflow } from "@local/nodered";
-import { McmaResource } from "@mcma/core";
 
 const { LogGroupName, WorkerFunctionId } = process.env;
 
@@ -17,11 +21,33 @@ const workerInvoker = new LambdaWorkerInvoker();
 const jobAssignmentRoutes = new DefaultJobRouteCollection(dbTableProvider, invokeLambdaWorker);
 
 const workflowRoutes = new DefaultRouteCollection(dbTableProvider, NodeRedWorkflow, "/workflows");
-workflowRoutes.create.onCompleted = onWorkflowInsertUpdate;
-workflowRoutes.update.onCompleted = onWorkflowInsertUpdate;
+workflowRoutes.create.onStarted = onBeforeWorkflowInsertUpdate;
+workflowRoutes.create.onCompleted = onAfterWorkflowInsertUpdate;
+workflowRoutes.update.onStarted = onBeforeWorkflowInsertUpdate;
+workflowRoutes.update.onCompleted = onAfterWorkflowInsertUpdate;
 workflowRoutes.delete.onCompleted = onWorkflowDelete;
 
-async function onWorkflowInsertUpdate(requestContext: McmaApiRequestContext, resource: McmaResource) {
+async function onBeforeWorkflowInsertUpdate(requestContext: McmaApiRequestContext): Promise<boolean> {
+    if (!requestContext.hasRequestBody()) {
+        requestContext.setResponseBadRequestDueToMissingBody();
+        return false;
+    }
+
+    if (!Array.isArray(requestContext.request.body.definition)) {
+        requestContext.setResponseStatusCode(HttpStatusCode.BadRequest, "property 'definition' must be an array");
+        return false;
+    }
+
+    if (requestContext.request.body.definition.find((n: NodeRedNode) => n.type === "subflow")) {
+        requestContext.setResponseStatusCode(HttpStatusCode.BadRequest, "Node-RED subflows are not supported");
+        return false;
+    }
+
+    requestContext.request.body.hash = objectHash(requestContext.request.body.definition);
+    return true;
+}
+
+async function onAfterWorkflowInsertUpdate(requestContext: McmaApiRequestContext, resource: McmaResource) {
     await workerInvoker.invoke(
         WorkerFunctionId,
         "RegisterWorkflow",
