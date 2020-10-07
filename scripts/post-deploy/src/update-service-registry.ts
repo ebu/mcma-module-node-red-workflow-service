@@ -84,7 +84,7 @@ export async function updateServiceRegistry(terraformOutput: any, AWS: Aws): Pro
             }),
         ],
         authType: workflowServiceAuthType,
-        jobType: "TransformJob",
+        jobType: "WorkflowJob",
         jobProfileIds: []
     });
 

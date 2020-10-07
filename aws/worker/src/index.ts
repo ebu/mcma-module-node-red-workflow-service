@@ -7,7 +7,7 @@ import { ProviderCollection, Worker, WorkerRequest, WorkerRequestProperties } fr
 import { AwsCloudWatchLoggerProvider } from "@mcma/aws-logger";
 import { awsV4Auth } from "@mcma/aws-client";
 import { DynamoDbTableProvider } from "@mcma/aws-dynamodb";
-import { registerWorkflow, unregisterWorkflow } from "./operations";
+import { processJobAssignment, registerWorkflow, unregisterWorkflow } from "./operations";
 
 const { LogGroupName } = process.env;
 
@@ -27,6 +27,7 @@ const providerCollection = new ProviderCollection({
 
 const worker =
     new Worker(providerCollection)
+        .addOperation("ProcessJobAssignment", processJobAssignment)
         .addOperation("RegisterWorkflow", registerWorkflow)
         .addOperation("UnregisterWorkflow", unregisterWorkflow);
 
