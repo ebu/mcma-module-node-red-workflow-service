@@ -1,9 +1,10 @@
-import { getTableName, JobParameterBag, JobStatus, McmaException, ProblemDetail, WorkflowJob } from "@mcma/core";
+import { getTableName, JobParameterBag, JobStatus, Logger, McmaException, ProblemDetail, WorkflowJob } from "@mcma/core";
 import { ProcessJobAssignmentHelper, ProviderCollection, WorkerRequest } from "@mcma/worker";
 
 import { NodeRedWorkflow } from "@local/nodered";
+import ECS = require("aws-sdk/clients/ecs");
 
-const { TableName, PublicUrl } = process.env;
+const { EcsClusterId, EcsNodeRedServiceName, TableName, PublicUrl } = process.env;
 
 export async function processJobAssignment(providers: ProviderCollection, workerRequest: WorkerRequest, context: { awsRequestId: string }) {
     if (!workerRequest) {
@@ -102,7 +103,8 @@ async function executeWorkflow(providers: ProviderCollection, jobAssignmentHelpe
             return;
         }
 
-
+        const ipAddress = await getServiceIpAddress(logger);
+        logger.info(`Found Node-RED instance on ipAddress ${ipAddress}`);
 
         throw new McmaException("Not Implemented");
     } catch (error) {
@@ -128,4 +130,64 @@ async function validateJobInput(workflow: NodeRedWorkflow, jobInput: JobParamete
         }
     }
     return null;
+}
+
+async function getServiceIpAddress(logger: Logger): Promise<string> {
+    const ecs = new ECS();
+
+    logger.info("Listing tasks for cluster '" + EcsClusterId + "' and service '" + EcsNodeRedServiceName + "'");
+    const listTaskData = await ecs.listTasks({
+        cluster: EcsClusterId,
+        serviceName: EcsNodeRedServiceName
+    }).promise();
+    logger.info(listTaskData);
+
+    if (listTaskData.taskArns.length === 0) {
+        throw new McmaException("Failed to find a running task for service '" + EcsNodeRedServiceName + "'");
+    }
+
+    logger.info("Describing tasks");
+    const describeTaskData = await ecs.describeTasks({
+        cluster: EcsClusterId,
+        tasks: listTaskData.taskArns,
+    }).promise();
+    logger.info(describeTaskData);
+
+    logger.info("Finding IP address of suitable task");
+    let selectedTask = undefined;
+    let privateIPv4Address = undefined;
+    let networkInterfaceId = undefined;
+
+    for (const task of describeTaskData.tasks) {
+        if (task.lastStatus !== "RUNNING") {
+            continue;
+        }
+        for (const attachment of task.attachments) {
+            if (attachment.type !== "ElasticNetworkInterface" || attachment.status !== "ATTACHED") {
+                continue;
+            }
+
+            privateIPv4Address = undefined;
+            networkInterfaceId = undefined;
+            for (const detail of attachment.details) {
+                if (detail.name === "privateIPv4Address") {
+                    privateIPv4Address = detail.value;
+                }
+            }
+
+            if (privateIPv4Address) {
+                break;
+            }
+        }
+
+        if (privateIPv4Address) {
+            selectedTask = task;
+        }
+    }
+
+    if (!selectedTask) {
+        throw new McmaException("Failed to find a running task for service '" + EcsNodeRedServiceName + "'");
+    }
+
+    return privateIPv4Address;
 }

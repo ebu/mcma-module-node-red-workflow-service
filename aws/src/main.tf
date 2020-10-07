@@ -103,18 +103,19 @@ resource "aws_iam_policy" "lambda_execution" {
         Sid: "ManageNodeRedEcsService",
         Effect: "Allow",
         Action: [
-          "ecs:UpdateService"
-        ],
+          "ecs:UpdateService",
+        ]
         Resource: "arn:aws:ecs:${var.aws_region}:${var.aws_account_id}:service/${var.ecs_cluster.name}/${aws_ecs_service.nodered.name}"
       },
       {
-        Sid: "AccesstoS3",
+        Sid: "QueryEcsService",
         Effect: "Allow",
         Action: [
-          "s3:*",
+          "ecs:List*",
+          "ecs:Describe*",
         ],
-        Resource: "*",
-      }
+        Resource: "*"
+      },
     ],
     var.xray_tracing_enabled ?
     [{
