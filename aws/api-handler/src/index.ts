@@ -1,23 +1,62 @@
 import { APIGatewayProxyEventV2, Context } from "aws-lambda";
-import { DefaultJobRouteCollection } from "@mcma/api";
+import { DefaultJobRouteCollection, DefaultRouteCollection, McmaApiRequestContext, McmaApiRouteCollection } from "@mcma/api";
 import { DynamoDbTableProvider } from "@mcma/aws-dynamodb";
 import { AwsCloudWatchLoggerProvider } from "@mcma/aws-logger";
 import { ApiGatewayApiController } from "@mcma/aws-api-gateway";
-import { invokeLambdaWorker } from "@mcma/aws-lambda-worker-invoker";
+import { invokeLambdaWorker, LambdaWorkerInvoker } from "@mcma/aws-lambda-worker-invoker";
 import { getSettings, listStorage, npmInstall, resetService, restartService, setSettings } from "./manage-routes";
+import { NodeRedWorkflow } from "@local/nodered";
+import { McmaResource } from "@mcma/core";
 
-const { LogGroupName } = process.env;
+const { LogGroupName, WorkerFunctionId } = process.env;
 
 const loggerProvider = new AwsCloudWatchLoggerProvider("node-red-workflow-service-api-handler", LogGroupName);
 const dbTableProvider = new DynamoDbTableProvider();
+const workerInvoker = new LambdaWorkerInvoker();
 
-const routes = new DefaultJobRouteCollection(dbTableProvider, invokeLambdaWorker)
+const jobAssignmentRoutes = new DefaultJobRouteCollection(dbTableProvider, invokeLambdaWorker);
+
+const workflowRoutes = new DefaultRouteCollection(dbTableProvider, NodeRedWorkflow, "/workflows");
+workflowRoutes.create.onCompleted = onWorkflowInsertUpdate;
+workflowRoutes.update.onCompleted = onWorkflowInsertUpdate;
+workflowRoutes.delete.onCompleted = onWorkflowDelete;
+
+async function onWorkflowInsertUpdate(requestContext: McmaApiRequestContext, resource: McmaResource) {
+    await workerInvoker.invoke(
+        WorkerFunctionId,
+        "RegisterWorkflow",
+        undefined,
+        {
+            workflow: resource
+        },
+        requestContext.getTracker(),
+    );
+}
+
+async function onWorkflowDelete(requestContext: McmaApiRequestContext, resource: McmaResource) {
+    await workerInvoker.invoke(
+        WorkerFunctionId,
+        "UnregisterWorkflow",
+        undefined,
+        {
+            workflow: resource
+        },
+        requestContext.getTracker(),
+    );
+}
+
+const manageRoutes = new McmaApiRouteCollection()
     .addRoute("GET", "/manage/list-storage", listStorage)
     .addRoute("GET", "/manage/settings", getSettings)
     .addRoute("PUT", "/manage/settings", setSettings)
     .addRoute("POST", "/manage/reset-service", resetService)
     .addRoute("POST", "/manage/restart-service", restartService)
     .addRoute("POST", "/manage/npm-install", npmInstall);
+
+const routes = new McmaApiRouteCollection()
+    .addRoutes(jobAssignmentRoutes)
+    .addRoutes(workflowRoutes)
+    .addRoutes(manageRoutes);
 
 const restController = new ApiGatewayApiController(routes, loggerProvider);
 

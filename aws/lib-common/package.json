@@ -1,0 +1,26 @@
+{
+    "name": "@local/nodered",
+    "version": "0.0.0",
+    "description": "Local helper library for sharing code between api-handler and worker",
+    "private": true,
+    "main": "index.js",
+    "types": "index.d.ts",
+    "license": "Apache-2.0",
+    "dependencies": {
+        "uuid": "^7.0.3"
+    },
+    "devDependencies": {
+        "@mcma/aws-dynamodb": "0.13.15-RC1",
+        "@mcma/core": "0.13.15-RC1",
+        "@mcma/data": "0.13.15-RC1",
+        "@types/node": "^10.17.21",
+        "@types/uuid": "^7.0.3",
+        "aws-sdk": "^2.631.0"
+    },
+    "peerDependencies": {
+        "@mcma/aws-dynamodb": "0.13.15-RC1",
+        "@mcma/core": "0.13.15-RC1",
+        "@mcma/data": "0.13.15-RC1",
+        "aws-sdk": "^2.631.0"
+    }
+}

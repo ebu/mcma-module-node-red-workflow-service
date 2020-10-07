@@ -1,5 +1,6 @@
 include "aws",
         "aws:api-handler",
+        "aws:lib-common",
         "aws:worker",
         "deployment",
         "scripts",
