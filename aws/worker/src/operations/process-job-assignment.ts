@@ -117,6 +117,19 @@ async function executeWorkflow(providers: ProviderCollection, jobAssignmentHelpe
         logger.info("Syncing workflows to service");
         await syncWorkflowsToService(noderedService, table, logger);
 
+        logger.info(`Invoking workflow ${workflow.name}`);
+        try {
+            await invokeNodeRedFlow(noderedService, workflow, jobAssignmentHelper.jobInput);
+        } catch (error) {
+            await jobAssignmentHelper.fail({
+                type: "uri://mcma.ebu.ch/rfc7807/nodered-workflow-service/workflow-invocation-error",
+                title: "Workflow invocation error",
+                detail: "Failed to invoke workflow due to: " + error.message,
+                stacktrace: error.stacktrace,
+            });
+            return;
+        }
+
         throw new McmaException("Not Implemented");
     } catch (error) {
         logger.error(`Error occurred while processing ${jobAssignmentHelper.profile.name}`);
@@ -223,11 +236,11 @@ async function syncWorkflowsToService(noderedService: AxiosInstance, table: Docu
     const flowsToInsert = Array.from(convertedFlowsMap.values()).filter(flow => !existingFlowsSet.has(flow.info));
 
     for (const flow of flowsToDelete) {
-        logger.info(`Deleting flow '${flow.label}`);
+        logger.info(`Deleting flow ${flow.label}`);
         await noderedService.delete(`flow/${flow.id}`);
     }
     for (const flow of flowsToInsert) {
-        logger.info(`Inserting flow '${flow.label}`);
+        logger.info(`Inserting flow ${flow.label}`);
         await noderedService.post("flow", flow);
     }
 }
@@ -261,6 +274,13 @@ function convertToFlow(workflow: NodeRedWorkflow): NodeRedFlow {
         }
     }
 
+    // replacing entry point url with unique value
+    const httpInNode = nodes.find(n => n.type === "http in");
+    if (httpInNode) {
+        httpInNode.name = "http in";
+        httpInNode.url = "/" + workflow.hash;
+    }
+
     return {
         id: tab.id,
         label: workflow.name,
@@ -283,4 +303,16 @@ async function getExistingFlows(noderedService: AxiosInstance): Promise<NodeRedF
     }
 
     return existingFlows;
+}
+
+async function invokeNodeRedFlow(noderedService: AxiosInstance, workflow: NodeRedWorkflow, jobInput: JobParameterBag) {
+    const payload = {
+        executionId: uuidv4(),
+        input: jobInput,
+        output: {},
+    };
+
+    noderedService.post(workflow.hash, payload);
+
+    return payload.executionId;
 }
