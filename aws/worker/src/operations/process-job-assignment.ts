@@ -312,7 +312,7 @@ async function invokeNodeRedFlow(noderedService: AxiosInstance, workflow: NodeRe
         output: {},
     };
 
-    noderedService.post(workflow.hash, payload);
+    await noderedService.post(workflow.hash, payload);
 
     return payload.executionId;
 }

@@ -1,16 +1,15 @@
 import { readFileSync, writeFileSync } from "fs";
 import { execSync } from "child_process";
-import * as npm from "npm";
 import { ECS } from "aws-sdk";
 import * as dirTree from "directory-tree";
-import { v4 as uuidv4 } from "uuid";
 
-import { Logger, McmaException } from "@mcma/core";
+import { McmaException } from "@mcma/core";
 import { HttpStatusCode, McmaApiRequestContext } from "@mcma/api";
+import { invokeLambdaWorker } from "@mcma/aws-lambda-worker-invoker";
 
 const ecs = new ECS();
 
-const { EcsClusterId, EcsNodeRedServiceName } = process.env;
+const { EcsClusterId, EcsNodeRedServiceName, WorkerFunctionId } = process.env;
 
 export async function listStorage(requestContext: McmaApiRequestContext) {
     const tree = dirTree("/mnt/nodered");
@@ -37,6 +36,16 @@ export async function resetService(requestContext: McmaApiRequestContext) {
     await restartService(requestContext);
 }
 
+export async function setupConfig(requestContext: McmaApiRequestContext) {
+    await invokeLambdaWorker(WorkerFunctionId, {
+        operationName: "SetupConfig",
+        input: {},
+        tracker: requestContext.getTracker()
+    });
+
+    requestContext.setResponseStatusCode(HttpStatusCode.Accepted);
+}
+
 export async function restartService(requestContext: McmaApiRequestContext) {
     await ecs.updateService({
         service: EcsNodeRedServiceName,
@@ -48,61 +57,25 @@ export async function restartService(requestContext: McmaApiRequestContext) {
 }
 
 export async function npmInstall(requestContext: McmaApiRequestContext) {
-    const logger = requestContext.getLogger();
-
-    const packages: string[] = [];
+    let base64: string = undefined;
+    let packages: string[] = undefined;
 
     if (typeof requestContext.request.body === "string") {
-        const buf = Buffer.from(requestContext.request.body, "base64");
-
-        const filename = `/tmp/${uuidv4()}.tgz`;
-
-        writeFileSync(filename, buf);
-
-        packages.push(filename);
+        base64 = requestContext.request.body;
     } else if (Array.isArray(requestContext.request.body.packages)) {
-        packages.push(...requestContext.request.body.packages);
+        packages = requestContext.request.body.packages;
     } else {
         throw new McmaException("Invalid input");
     }
 
-    await installPackages(packages, logger);
+    await invokeLambdaWorker(WorkerFunctionId, {
+        operationName: "NpmInstall",
+        input: {
+            base64,
+            packages,
+        },
+        tracker: requestContext.getTracker()
+    });
 
     requestContext.setResponseStatusCode(HttpStatusCode.Accepted);
-}
-
-async function installPackages(packages: string[], logger: Logger) {
-    return new Promise((resolve, reject) => {
-        try {
-            process.chdir("/mnt/nodered");
-
-            logger.info("npm load");
-            npm.load({
-                cache: "/tmp/.npm"
-            }, ((err, result) => {
-                logger.info({ err, result });
-                logger.info("npm install");
-                try {
-                    npm.commands.install(packages, (err?: Error, result?: any) => {
-                        logger.info("results");
-                        if (err) {
-                            logger.error(err);
-                            return reject(err);
-                        }
-
-                        logger.info(result);
-                        resolve(result);
-                    });
-                } catch (error) {
-                    reject(error);
-                }
-            }));
-
-            npm.on('log', (message) => {
-                logger.info(message);
-            });
-        } catch (error) {
-            reject(error);
-        }
-    });
 }

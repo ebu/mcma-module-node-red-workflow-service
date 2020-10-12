@@ -10,7 +10,7 @@ import { invokeLambdaWorker, LambdaWorkerInvoker } from "@mcma/aws-lambda-worker
 
 import { NodeRedWorkflow, NodeRedNode } from "@local/nodered";
 
-import { getSettings, listStorage, npmInstall, resetService, restartService, setSettings } from "./manage-routes";
+import { getSettings, listStorage, npmInstall, resetService, restartService, setSettings, setupConfig } from "./manage-routes";
 
 const { LogGroupName, WorkerFunctionId } = process.env;
 
@@ -75,6 +75,7 @@ const manageRoutes = new McmaApiRouteCollection()
     .addRoute("GET", "/manage/list-storage", listStorage)
     .addRoute("GET", "/manage/settings", getSettings)
     .addRoute("PUT", "/manage/settings", setSettings)
+    .addRoute("POST", "/manage/setup-config", setupConfig)
     .addRoute("POST", "/manage/reset-service", resetService)
     .addRoute("POST", "/manage/restart-service", restartService)
     .addRoute("POST", "/manage/npm-install", npmInstall);

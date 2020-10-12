@@ -128,7 +128,19 @@ resource "aws_ecs_task_definition" "nodered" {
     {
       name: "nodered",
       cpu: 0,
-      environment:  [],
+      environment:  [
+        {
+          name: "WorkerFunctionId",
+          value: local.worker_lambda_name
+        },
+        {
+          name: "ServicesUrl",
+          value: var.service_registry.services_url
+        },
+        {
+          name: "ServicesAuthType",
+          value: var.service_registry.auth_type
+        }],
       essential: true,
       image: "nodered/node-red:1.1.3",
       logConfiguration: {
@@ -161,7 +173,6 @@ resource "aws_ecs_task_definition" "nodered" {
     efs_volume_configuration {
       file_system_id     = aws_efs_file_system.nodered.id
       transit_encryption = "ENABLED"
-      root_directory     = "/"
       authorization_config {
         access_point_id = aws_efs_access_point.nodered.id
         iam             = "ENABLED"
