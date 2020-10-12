@@ -117,9 +117,11 @@ async function executeWorkflow(providers: ProviderCollection, jobAssignmentHelpe
         logger.info("Syncing workflows to service");
         await syncWorkflowsToService(noderedService, table, logger);
 
+        const jobAssignmentGuid = jobAssignmentHelper.jobAssignmentDatabaseId.substring(17);
+
         logger.info(`Invoking workflow ${workflow.name}`);
         try {
-            await invokeNodeRedFlow(noderedService, workflow, jobAssignmentHelper.jobInput);
+            await invokeNodeRedFlow(noderedService, workflow, jobAssignmentGuid, jobAssignmentHelper.jobInput);
         } catch (error) {
             await jobAssignmentHelper.fail({
                 type: "uri://mcma.ebu.ch/rfc7807/nodered-workflow-service/workflow-invocation-error",
@@ -130,7 +132,7 @@ async function executeWorkflow(providers: ProviderCollection, jobAssignmentHelpe
             return;
         }
 
-        throw new McmaException("Not Implemented");
+        await jobAssignmentHelper.updateJobAssignmentStatus(JobStatus.Running);
     } catch (error) {
         logger.error(`Error occurred while processing ${jobAssignmentHelper.profile.name}`);
         logger.error(error);
@@ -305,14 +307,12 @@ async function getExistingFlows(noderedService: AxiosInstance): Promise<NodeRedF
     return existingFlows;
 }
 
-async function invokeNodeRedFlow(noderedService: AxiosInstance, workflow: NodeRedWorkflow, jobInput: JobParameterBag) {
+async function invokeNodeRedFlow(noderedService: AxiosInstance, workflow: NodeRedWorkflow, jobAssignmentGuid: string, jobInput: JobParameterBag) {
     const payload = {
-        executionId: uuidv4(),
+        executionId: jobAssignmentGuid,
         input: jobInput,
         output: {},
     };
 
     await noderedService.post(workflow.hash, payload);
-
-    return payload.executionId;
 }

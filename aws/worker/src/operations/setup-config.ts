@@ -25,7 +25,7 @@ async function main() {
         })
     }).promise();
 }
-main().then(() => resolve()).catch(error => reject(error))
+main().then(() => resolve()).catch(error => reject(error));
 `;
 
     const scriptDir = "/mnt/nodered/scripts";
