@@ -6,9 +6,9 @@ import { DefaultJobRouteCollection, DefaultRouteCollection, HttpStatusCode, Mcma
 import { DynamoDbTableProvider } from "@mcma/aws-dynamodb";
 import { AwsCloudWatchLoggerProvider } from "@mcma/aws-logger";
 import { ApiGatewayApiController } from "@mcma/aws-api-gateway";
-import { invokeLambdaWorker, LambdaWorkerInvoker } from "@mcma/aws-lambda-worker-invoker";
+import { invokeLambdaWorker } from "@mcma/aws-lambda-worker-invoker";
 
-import { NodeRedWorkflow, NodeRedNode } from "@local/nodered";
+import { NodeRedNode, NodeRedWorkflow } from "@local/nodered";
 
 import { getSettings, listStorage, npmInstall, resetService, restartService, setSettings, setupConfig } from "./manage-routes";
 
@@ -16,7 +16,6 @@ const { LogGroupName, WorkerFunctionId } = process.env;
 
 const loggerProvider = new AwsCloudWatchLoggerProvider("node-red-workflow-service-api-handler", LogGroupName);
 const dbTableProvider = new DynamoDbTableProvider();
-const workerInvoker = new LambdaWorkerInvoker();
 
 const jobAssignmentRoutes = new DefaultJobRouteCollection(dbTableProvider, invokeLambdaWorker);
 
@@ -48,27 +47,23 @@ async function onBeforeWorkflowInsertUpdate(requestContext: McmaApiRequestContex
 }
 
 async function onAfterWorkflowInsertUpdate(requestContext: McmaApiRequestContext, resource: McmaResource) {
-    await workerInvoker.invoke(
-        WorkerFunctionId,
-        "RegisterWorkflow",
-        undefined,
-        {
+    await invokeLambdaWorker(WorkerFunctionId, {
+        operationName: "RegisterWorkflow",
+        input: {
             workflow: resource
         },
-        requestContext.getTracker(),
-    );
+        tracker: requestContext.getTracker(),
+    });
 }
 
 async function onWorkflowDelete(requestContext: McmaApiRequestContext, resource: McmaResource) {
-    await workerInvoker.invoke(
-        WorkerFunctionId,
-        "UnregisterWorkflow",
-        undefined,
-        {
+    await invokeLambdaWorker(WorkerFunctionId, {
+        operationName: "UnregisterWorkflow",
+        input: {
             workflow: resource
         },
-        requestContext.getTracker(),
-    );
+        tracker: requestContext.getTracker(),
+    });
 }
 
 const manageRoutes = new McmaApiRouteCollection()

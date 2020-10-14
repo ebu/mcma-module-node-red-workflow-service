@@ -22,7 +22,7 @@ export async function processJobAssignment(providers: ProviderCollection, worker
     }
 
     const dbTable = await providers.dbTableProvider.get(getTableName(providers.contextVariableProvider));
-    const resourceManager = providers.resourceManagerProvider.get(workerRequest);
+    const resourceManager = providers.resourceManagerProvider.get(providers.contextVariableProvider);
     const jobAssignmentHelper = new ProcessJobAssignmentHelper<WorkflowJob>(dbTable, resourceManager, workerRequest);
 
     const mutex = dbTable.createMutex(workerRequest.input.jobAssignmentDatabaseId, context.awsRequestId);

@@ -42,8 +42,6 @@ export async function handler(event: WorkerRequestProperties, context: Context) 
         logger.debug(event);
         logger.debug(context);
 
-        event.contextVariables = contextVariableProvider.getAllContextVariables();
-
         await worker.doWork(new WorkerRequest(event, logger), { awsRequestId: context.awsRequestId });
     } catch (error) {
         logger.error("Error occurred when handling operation '" + event.operationName + "'");
