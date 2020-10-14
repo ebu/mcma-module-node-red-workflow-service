@@ -182,10 +182,9 @@ async function getServiceIpAddress(logger: Logger): Promise<string> {
     logger.info("Finding IP address of suitable task");
     let selectedTask = undefined;
     let privateIPv4Address = undefined;
-    let networkInterfaceId = undefined;
 
     for (const task of describeTaskData.tasks) {
-        if (task.lastStatus !== "RUNNING") {
+        if (task.lastStatus !== "RUNNING" || task.desiredStatus !== "RUNNING") {
             continue;
         }
         for (const attachment of task.attachments) {
@@ -194,7 +193,6 @@ async function getServiceIpAddress(logger: Logger): Promise<string> {
             }
 
             privateIPv4Address = undefined;
-            networkInterfaceId = undefined;
             for (const detail of attachment.details) {
                 if (detail.name === "privateIPv4Address") {
                     privateIPv4Address = detail.value;
@@ -208,6 +206,7 @@ async function getServiceIpAddress(logger: Logger): Promise<string> {
 
         if (privateIPv4Address) {
             selectedTask = task;
+            break;
         }
     }
 
@@ -242,8 +241,14 @@ async function syncWorkflowsToService(noderedService: AxiosInstance, table: Docu
         await noderedService.delete(`flow/${flow.id}`);
     }
     for (const flow of flowsToInsert) {
-        logger.info(`Inserting flow ${flow.label}`);
-        await noderedService.post("flow", flow);
+        try {
+            logger.info(`Inserting flow ${flow.label}`);
+            await noderedService.post("flow", flow);
+        } catch (error) {
+            logger.warn(`Failed to create flow ${flow.label}`);
+            logger.warn(error.message);
+            logger.warn(error.toString());
+        }
     }
 }
 
@@ -251,6 +256,8 @@ function convertToFlow(workflow: NodeRedWorkflow): NodeRedFlow {
     const tab = workflow.definition.find(n => n.type === "tab");
     const nodes: NodeRedFlowNode[] = workflow.definition.filter(n => n.z === tab.id && !isNaN(n.x));
     const configs: NodeRedFlowConfig[] = workflow.definition.filter(n => n.type !== "tab" && n.type !== "subflow" && isNaN(n.x));
+
+    const tabId = tab?.id ?? uuidv4().replace(/-/g, "");
 
     // replacing node ids with unique ids to prevent collision when pushing to service
     const idMap = new Map<string, string>();
@@ -261,7 +268,7 @@ function convertToFlow(workflow: NodeRedWorkflow): NodeRedFlow {
     for (const config of configs) {
         idMap.set(config.id, uuidv4().replace(/-/g, ""));
         config.id = idMap.get(config.id);
-        config.z = tab.id;
+        config.z = tabId;
     }
     for (const node of nodes) {
         for (let i = 0; i < node.wires.length; i++) {
@@ -276,15 +283,46 @@ function convertToFlow(workflow: NodeRedWorkflow): NodeRedFlow {
         }
     }
 
-    // replacing entry point url with unique value
-    const httpInNode = nodes.find(n => n.type === "http in");
-    if (httpInNode) {
-        httpInNode.name = "http in";
-        httpInNode.url = "/" + workflow.hash;
+    // inserting complete node if not exists
+    let workflowCompleteNode = nodes.find(n => n.type === "mcma-workflow-complete");
+    if (!workflowCompleteNode) {
+        workflowCompleteNode = {
+            id: uuidv4().replace(/-/g, ""),
+            type: "mcma-workflow-complete",
+            z: tabId,
+            name: "",
+            x: 800,
+            y: 800,
+            wires: []
+        };
+        nodes.push(workflowCompleteNode);
     }
 
+    // inserting start node if not exists
+    let workflowStartNode = nodes.find(n => n.type === "mcma-workflow-start");
+    if (!workflowStartNode) {
+        workflowStartNode = {
+            id: uuidv4().replace(/-/g, ""),
+            type: "mcma-workflow-start",
+            z: tabId,
+            name: "",
+            url: "",
+            x: 100,
+            y: 100,
+            wires: [
+                [
+                    workflowCompleteNode.id
+                ]
+            ]
+        };
+        nodes.push(workflowStartNode);
+    }
+
+    // replacing entry point url with unique value
+    workflowStartNode.url = "/" + workflow.hash;
+
     return {
-        id: tab.id,
+        id: tabId,
         label: workflow.name,
         disabled: false,
         info: workflow.hash,
@@ -311,7 +349,7 @@ async function invokeNodeRedFlow(noderedService: AxiosInstance, workflow: NodeRe
     const payload = {
         executionId: jobAssignmentGuid,
         input: jobInput,
-        output: {},
+        output: new JobParameterBag()
     };
 
     await noderedService.post(workflow.hash, payload);

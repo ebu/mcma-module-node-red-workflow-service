@@ -2,6 +2,8 @@ import { ProcessJobAssignmentHelper, ProviderCollection, WorkerRequest } from "@
 import { getTableName, JobStatus, McmaException, ProblemDetail, ProblemDetailProperties, WorkflowJob } from "@mcma/core";
 
 export async function updateJobAssignment(providers: ProviderCollection, workerRequest: WorkerRequest, context: { awsRequestId: string }) {
+    const logger = workerRequest.logger;
+
     if (!workerRequest) {
         throw new McmaException("request must be provided");
     }
@@ -21,6 +23,13 @@ export async function updateJobAssignment(providers: ProviderCollection, workerR
     await mutex.lock();
     try {
         await jobAssignmentHelper.initialize();
+
+        if (jobAssignmentHelper.jobAssignment.status === JobStatus.Completed ||
+            jobAssignmentHelper.jobAssignment.status === JobStatus.Failed ||
+            jobAssignmentHelper.jobAssignment.status === JobStatus.Canceled) {
+            logger.warn("Ignoring status update as job already reached final state");
+            return;
+        }
 
         switch (workerRequest.input.status) {
             case JobStatus.Completed:
@@ -42,7 +51,7 @@ export async function updateJobAssignment(providers: ProviderCollection, workerR
                         type: "uri://mcma.ebu.ch/rfc7807/nodered-workflow-service/generic-execution-failure",
                         title: "Generic execution failure",
                         detail: error,
-                    }
+                    };
                 } else if (typeof error === "object") {
                     if (typeof error.title === "string" && typeof error.title === "string") {
                         problemDetail = error;
@@ -51,18 +60,18 @@ export async function updateJobAssignment(providers: ProviderCollection, workerR
                             type: "uri://mcma.ebu.ch/rfc7807/nodered-workflow-service/generic-execution-failure",
                             title: "Generic execution failure",
                             detail: error.title,
-                        }
+                        };
                     } else {
                         problemDetail = {
                             type: "uri://mcma.ebu.ch/rfc7807/nodered-workflow-service/unknown-execution-failure",
                             title: "Workflow execution failed due to unknown reason"
-                        }
+                        };
                     }
                 } else {
                     problemDetail = {
                         type: "uri://mcma.ebu.ch/rfc7807/nodered-workflow-service/unknown-execution-failure",
                         title: "Workflow execution failed due to unknown reason"
-                    }
+                    };
                 }
 
                 await jobAssignmentHelper.fail(problemDetail);
