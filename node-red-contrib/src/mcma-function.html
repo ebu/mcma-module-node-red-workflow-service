@@ -1,0 +1,113 @@
+<script type="text/html" data-template-name="mcma-function">
+    <div class="form-row">
+        <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+        <div style="display: inline-block; width: calc(100% - 105px)"><input type="text" id="node-input-name" placeholder="function"></div>
+    </div>
+    <div class="form-row">
+        <label for="node-input-params"><i class="fa fa-tag"></i> Parameters</label>
+        <div style="display: inline-block; width: calc(100% - 105px)"><input type="text" id="node-input-params"></div>
+    </div>
+    <div class="form-row" style="margin-bottom: 0;">
+        <label for="node-input-func"><i class="fa fa-wrench"></i> Function</label>
+        <input type="hidden" id="node-input-func" autofocus="autofocus">
+        <input type="hidden" id="node-input-noerr">
+    </div>
+    <div class="form-row node-text-editor-row" style="position:relative">
+        <div style="position: absolute; right:0; bottom:calc(100% + 3px);"><button id="node-function-expand-js" class="red-ui-button red-ui-button-small"><i class="fa fa-expand"></i></button></div>
+        <div style="height: 250px; min-height:150px;" class="node-text-editor" id="node-input-func-editor" ></div>
+    </div>
+
+</script>
+
+<script type="text/javascript">
+    RED.nodes.registerType("mcma-function", {
+        color: "#73b4dc",
+        category: "MCMA",
+        defaults: {
+            name: { value: "" },
+            params: { value: "", type: "mcma-parameters", required: false },
+            func: { value: "\n\nasync function handler(payload) {\n    //TODO write code\n\n    return payload;\n}\n" },
+            noerr: {
+                value: 0, required: true, validate: function (v) {
+                    return !v;
+                }
+            }
+        },
+        inputs: 1,
+        outputs: 1,
+        icon: "function.svg",
+        label: function () {
+            return this.name || "function";
+        },
+        labelStyle: function () {
+            return this.name ? "node_label_italic" : "";
+        },
+        paletteLabel: "function",
+        oneditprepare: function () {
+            var that = this;
+
+            this.editor = RED.editor.createEditor({
+                id: "node-input-func-editor",
+                mode: "ace/mode/nrjavascript",
+                value: $("#node-input-func").val(),
+                globals: {
+                    msg: true
+                }
+            });
+
+            this.editor.focus();
+
+            const nodeFunctionExpandJs = $("#node-function-expand-js");
+            RED.popover.tooltip(nodeFunctionExpandJs, RED._("node-red:common.label.expand"));
+
+            nodeFunctionExpandJs.on("click", function (e) {
+                e.preventDefault();
+                var value = that.editor.getValue();
+                RED.editor.editJavaScript({
+                    value: value,
+                    width: "Infinity",
+                    cursor: that.editor.getCursorPosition(),
+                    mode: "ace/mode/nrjavascript",
+                    complete: function (v, cursor) {
+                        that.editor.setValue(v, -1);
+                        that.editor.gotoLine(cursor.row + 1, cursor.column, false);
+                        setTimeout(function () {
+                            that.editor.focus();
+                        }, 300);
+                    }
+                });
+            });
+        },
+        oneditsave: function () {
+            var annot = this.editor.getSession().getAnnotations();
+            this.noerr = 0;
+            const nodeInputNoErr = $("#node-input-noerr");
+            nodeInputNoErr.val(0);
+            for (var k = 0; k < annot.length; k++) {
+                //console.log(annot[k].type,":",annot[k].text, "on line", annot[k].row);
+                if (annot[k].type === "error") {
+                    nodeInputNoErr.val(annot.length);
+                    this.noerr = annot.length;
+                }
+            }
+            $("#node-input-func").val(this.editor.getValue());
+            this.editor.destroy();
+            delete this.editor;
+        },
+        oneditcancel: function () {
+            this.editor.destroy();
+            delete this.editor;
+        },
+        oneditresize: function () {
+            var rows = $("#dialog-form>div:not(.node-text-editor-row)");
+            var height = $("#dialog-form").height();
+            for (var i = 0; i < rows.length; i++) {
+                height -= $(rows[i]).outerHeight(true);
+            }
+            var editorRow = $("#dialog-form>div.node-text-editor-row");
+            height -= (parseInt(editorRow.css("marginTop")) + parseInt(editorRow.css("marginBottom")));
+            $(".node-text-editor").css("height", height + "px");
+            this.editor.resize();
+        }
+    });
+</script>

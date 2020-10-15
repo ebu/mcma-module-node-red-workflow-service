@@ -1,0 +1,31 @@
+<script type="text/html" data-template-name="mcma-workflow-start">
+    <div class="form-row">
+        <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+        <input type="text" id="node-input-name" placeholder="Start">
+    </div>
+    <div class="form-row">
+        <label for="node-input-url"><i class="fa fa-globe"></i> URL</label>
+        <input id="node-input-url" type="text" placeholder="/url">
+    </div>
+</script>
+
+<script type="text/javascript">
+    RED.nodes.registerType("mcma-workflow-start", {
+        color: "#e2cc1c",
+        category: "MCMA",
+        defaults: {
+            name: { value: "" },
+            url: { value: "" }
+        },
+        inputs: 0,
+        outputs: 1,
+        icon: "font-awesome/fa-arrow-circle-o-right",
+        label: function () {
+            return this.name || "Start";
+        },
+        labelStyle: function () {
+            return this.name ? "node_label_italic" : "";
+        },
+        paletteLabel: "start workflow"
+    });
+</script>

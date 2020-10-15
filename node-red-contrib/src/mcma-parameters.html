@@ -1,0 +1,88 @@
+<script type="text/html" data-template-name="mcma-parameters">
+    <div class="form-row">
+        <label for="node-config-input-name"><i class="fa fa-bookmark"></i> Name</label>
+        <input type="text" id="node-config-input-name">
+    </div>
+    <div class="form-row node-config-input-parameter-container-row">
+        <ol id="node-config-input-parameter-container"></ol>
+    </div>
+</script>
+
+<script type="text/javascript">
+    RED.nodes.registerType("mcma-parameters", {
+        category: "config",
+        defaults: {
+            name: { value: "", required: true },
+            params: { value: [{ n: "Parameter", v: "", vt: "str" }] }
+        },
+        label: function () {
+            return this.name || "Unnamed";
+        },
+        oneditprepare: function () {
+            const node = this;
+
+            const nodeConfigInputParameterContainer = $("#node-config-input-parameter-container");
+            nodeConfigInputParameterContainer.css("min-height", "150px").css("min-width", "450px").editableList({
+                addItem: function (container, i, opt) {
+                    if (!opt.hasOwnProperty('p')) {
+                        opt.p = {};
+                    }
+                    const param = opt.p;
+
+                    container.css({
+                        overflow: "hidden",
+                        whiteSpace: "nowrap"
+                    });
+                    const row = $("<div/>").appendTo(container);
+                    const nameField = $("<input/>", {
+                        class: "node-config-input-parameter-name",
+                        type: "text"
+                    }).appendTo(row).css("max-width", "120px");
+                    nameField.change(() => {
+                        nameField.val() === "" ? nameField.addClass("input-error") : nameField.removeClass("input-error");
+                    });
+                    const valueField = $("<input/>", {
+                        class: "node-config-input-parameter-value",
+                        type: "text",
+                        style: "margin-left: 5px;"
+                    }).appendTo(row).typedInput({ default: "str", types: ["str", "num", "json", "jsonata", "env"] });
+
+                    nameField.val(param.n);
+                    valueField.typedInput('value',param.v);
+                    valueField.typedInput('type',param.vt||'str');
+                },
+                removable: true
+            });
+
+            for (let i = 0; i < node.params.length; i++) {
+                const p = this.params[i];
+                nodeConfigInputParameterContainer.editableList("addItem", { p, i });
+            }
+        },
+        oneditsave: function () {
+            const node = this;
+            node.params = [];
+            const items = $("#node-config-input-parameter-container").editableList("items");
+            items.each((index, element) => {
+                const p = {
+                    n: element.find(".node-config-input-parameter-name").val(),
+                    v: element.find(".node-config-input-parameter-value").typedInput("value"),
+                    vt: element.find(".node-config-input-parameter-value").typedInput("type"),
+                };
+
+                node.params.push(p);
+            });
+        },
+        oneditresize: function (size) {
+            const rows = $("#node-config-dialog-edit-form>div:not(.node-config-input-parameter-container-row)");
+            let height = size.height;
+            for (let i = 0; i < rows.length; i++) {
+                height -= $(rows[i]).outerHeight(true);
+            }
+            let editorRow = $("#node-config-dialog-edit-form>div.node-config-input-parameter-container-row");
+            height -= (parseInt(editorRow.css("marginTop")) + parseInt(editorRow.css("marginBottom")));
+            height += 16;
+            $("#node-config-input-parameter-container").editableList("height", height);
+        }
+    });
+</script>
