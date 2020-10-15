@@ -101,15 +101,34 @@ variable "ecs_cluster" {
     id   = string
     name = string
   })
-  description = "ID of ECS cluster in which Node-RED container will be placed"
+  description = "ECS cluster in which Node-RED container will be placed"
 }
 
 variable "ecs_service_subnets" {
   type        = list(string)
-  description = "Subnets in which Node-RED container will be placed"
+  description = "List of subnets in which Node-RED container will be placed"
 }
 
 variable "ecs_service_security_groups" {
   type        = list(string)
-  description = "Security groups in which Node-RED container will be placed"
+  description = "List of security groups in which Node-RED container will be placed"
+}
+
+####################################
+# Node-RED container configuration
+####################################
+
+variable "nodered_environment_variables" {
+  type        = list(object({
+    name  = string
+    value = string
+  }))
+  description = "List of environment variables to be made available within Node-RED container"
+  default     = []
+}
+
+variable "nodered_iam_policy_arn" {
+  type        = string
+  description = "ARN of IAM policy to add additional permissions for Node-RED container instance"
+  default     = null
 }

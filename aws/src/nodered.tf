@@ -121,6 +121,12 @@ resource "aws_iam_role_policy_attachment" "nodered_task" {
   policy_arn = aws_iam_policy.nodered_task.arn
 }
 
+resource "aws_iam_role_policy_attachment" "nodered_task_additional" {
+  role       = aws_iam_role.nodered_task.id
+  policy_arn = var.nodered_iam_policy_arn
+  count      = var.nodered_iam_policy_arn != null ? 1 : 0
+}
+
 resource "aws_ecs_task_definition" "nodered" {
   family = var.module_prefix
 
@@ -128,7 +134,11 @@ resource "aws_ecs_task_definition" "nodered" {
     {
       name: "nodered",
       cpu: 0,
-      environment:  [
+      environment: concat(var.nodered_environment_variables, [
+        {
+          name: "LogGroupName",
+          value: var.log_group.name
+        },
         {
           name: "WorkerFunctionId",
           value: local.worker_lambda_name
@@ -140,7 +150,7 @@ resource "aws_ecs_task_definition" "nodered" {
         {
           name: "ServicesAuthType",
           value: var.service_registry.auth_type
-        }],
+        }]),
       essential: true,
       image: "nodered/node-red:1.1.3",
       logConfiguration: {

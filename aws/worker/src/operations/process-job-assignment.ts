@@ -2,7 +2,7 @@ import { ECS } from "aws-sdk";
 import axios, { AxiosInstance } from "axios";
 import { v4 as uuidv4 } from "uuid";
 
-import { getTableName, JobParameterBag, JobStatus, Logger, McmaException, ProblemDetail, WorkflowJob } from "@mcma/core";
+import { getTableName, JobParameterBag, JobStatus, Logger, McmaException, ProblemDetail, WorkflowJob, McmaTrackerProperties } from "@mcma/core";
 import { ProcessJobAssignmentHelper, ProviderCollection, WorkerRequest } from "@mcma/worker";
 import { DocumentDatabaseTable } from "@mcma/data";
 
@@ -121,7 +121,7 @@ async function executeWorkflow(providers: ProviderCollection, jobAssignmentHelpe
 
         logger.info(`Invoking workflow ${workflow.name}`);
         try {
-            await invokeNodeRedFlow(noderedService, workflow, jobAssignmentGuid, jobAssignmentHelper.jobInput);
+            await invokeNodeRedFlow(noderedService, workflow, jobAssignmentGuid, jobAssignmentHelper.jobInput, jobAssignmentHelper.jobAssignment.tracker);
         } catch (error) {
             await jobAssignmentHelper.fail({
                 type: "uri://mcma.ebu.ch/rfc7807/nodered-workflow-service/workflow-invocation-error",
@@ -345,11 +345,12 @@ async function getExistingFlows(noderedService: AxiosInstance): Promise<NodeRedF
     return existingFlows;
 }
 
-async function invokeNodeRedFlow(noderedService: AxiosInstance, workflow: NodeRedWorkflow, jobAssignmentGuid: string, jobInput: JobParameterBag) {
+async function invokeNodeRedFlow(noderedService: AxiosInstance, workflow: NodeRedWorkflow, jobAssignmentGuid: string, jobInput: JobParameterBag, tracker: McmaTrackerProperties) {
     const payload = {
         executionId: jobAssignmentGuid,
         input: jobInput,
-        output: new JobParameterBag()
+        output: new JobParameterBag(),
+        tracker
     };
 
     await noderedService.post(workflow.hash, payload);
