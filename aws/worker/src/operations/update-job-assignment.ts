@@ -1,7 +1,9 @@
 import { ProcessJobAssignmentHelper, ProviderCollection, WorkerRequest } from "@mcma/worker";
-import { getTableName, JobStatus, McmaException, ProblemDetail, ProblemDetailProperties, WorkflowJob } from "@mcma/core";
+import { EnvironmentVariables, JobStatus, McmaException, ProblemDetail, ProblemDetailProperties, WorkflowJob } from "@mcma/core";
 
-export async function updateJobAssignment(providers: ProviderCollection, workerRequest: WorkerRequest, context: { awsRequestId: string }) {
+const { TableName } = process.env;
+
+export async function updateJobAssignment(providers: ProviderCollection, workerRequest: WorkerRequest, context: { awsRequestId: string, environmentVariables: EnvironmentVariables }) {
     const logger = workerRequest.logger;
 
     if (!workerRequest) {
@@ -14,8 +16,8 @@ export async function updateJobAssignment(providers: ProviderCollection, workerR
         throw new McmaException("request.input does not specify a jobAssignmentDatabaseId");
     }
 
-    const dbTable = await providers.dbTableProvider.get(getTableName(providers.contextVariableProvider));
-    const resourceManager = providers.resourceManagerProvider.get(providers.contextVariableProvider);
+    const dbTable = await providers.dbTableProvider.get(TableName);
+    const resourceManager = providers.resourceManagerProvider.get(context.environmentVariables);
     const jobAssignmentHelper = new ProcessJobAssignmentHelper<WorkflowJob>(dbTable, resourceManager, workerRequest);
 
     const mutex = dbTable.createMutex(workerRequest.input.jobAssignmentDatabaseId, context.awsRequestId);

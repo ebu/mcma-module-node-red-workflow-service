@@ -83,13 +83,13 @@ handler(msg.payload).then(payload => __resolve__(payload)).catch(e => __fail__(e
                 },
                 context: {
                     set: (...args) => {
-                        this.node.context().set.apply(this.node,args);
+                        this.node.context().set.apply(this.node, args);
                     },
                     get: (...args) => {
-                        return this.node.context().get.apply(this.node,args);
+                        return this.node.context().get.apply(this.node, args);
                     },
                     keys: (...args) => {
-                        return this.node.context().keys.apply(this.node,args);
+                        return this.node.context().keys.apply(this.node, args);
                     },
                     get global() {
                         return this.node.context().global;
@@ -100,24 +100,24 @@ handler(msg.payload).then(payload => __resolve__(payload)).catch(e => __fail__(e
                 },
                 flow: {
                     set: (...args) => {
-                        this.node.context().flow.set.apply(this.node,args);
+                        this.node.context().flow.set.apply(this.node, args);
                     },
                     get: (...args) => {
-                        return this.node.context().flow.get.apply(this.node,args);
+                        return this.node.context().flow.get.apply(this.node, args);
                     },
                     keys: (...args) => {
-                        return this.node.context().flow.keys.apply(this.node,args);
+                        return this.node.context().flow.keys.apply(this.node, args);
                     }
                 },
                 global: {
                     set: (...args) => {
-                        this.node.context().global.set.apply(this.node,args);
+                        this.node.context().global.set.apply(this.node, args);
                     },
                     get: (...args) => {
-                        return this.node.context().global.get.apply(this.node,args);
+                        return this.node.context().global.get.apply(this.node, args);
                     },
                     keys: (...args) => {
-                        return this.node.context().global.keys.apply(this.node,args);
+                        return this.node.context().global.keys.apply(this.node, args);
                     }
                 },
                 env: {

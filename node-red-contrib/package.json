@@ -1,28 +1,32 @@
 {
-  "name": "@mcma/node-red-contrib",
-  "version": "0.0.0",
-  "description": "",
-  "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "author": "Joost Rovers <joost@rovers.pt>",
-  "license": "Apache-2.0",
-  "node-red": {
-    "nodes": {
-      "mcma-function": "mcma-function.js",
-      "mcma-parameters": "mcma-parameters.js",
-      "mcma-workflow-completed": "mcma-workflow-complete.js",
-      "mcma-workflow-failed": "mcma-workflow-fail.js",
-      "mcma-workflow-start": "mcma-workflow-start.js"
+    "name": "@mcma/node-red-contrib-mcma",
+    "version": "x.y.z",
+    "description": "Nodes for running MCMA workflows in the MCMA Node-RED workflow service",
+    "main": "index.js",
+    "scripts": {
+        "test": "echo \"Error: no test specified\" && exit 1"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/ebu/mcma-module-node-red-workflow-service.git"
+    },
+    "author": "Joost Rovers <joost@rovers.pt>",
+    "license": "Apache-2.0",
+    "node-red": {
+        "nodes": {
+            "mcma-function": "mcma-function.js",
+            "mcma-parameters": "mcma-parameters.js",
+            "mcma-workflow-completed": "mcma-workflow-complete.js",
+            "mcma-workflow-failed": "mcma-workflow-fail.js",
+            "mcma-workflow-start": "mcma-workflow-start.js"
+        }
+    },
+    "dependencies": {
+        "body-parser": "^1.19.0",
+        "cookie-parser": "^1.4.5"
+    },
+    "devDependencies": {
+        "@types/node": "^10.17.24",
+        "@types/node-red": "^0.20.1"
     }
-  },
-  "dependencies": {
-    "body-parser": "^1.19.0",
-    "cookie-parser": "^1.4.5"
-  },
-  "devDependencies": {
-    "@types/node": "^10.17.24",
-    "@types/node-red": "^0.20.1"
-  }
 }

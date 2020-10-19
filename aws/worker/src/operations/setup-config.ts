@@ -1,10 +1,11 @@
 import { ProviderCollection, WorkerRequest } from "@mcma/worker";
 import { existsSync, mkdirSync, writeFileSync } from "fs";
 import { installPackages } from "./npm-install";
+import { EnvironmentVariables } from "@mcma/core";
 
 const { TableName } = process.env;
 
-export async function setupConfig(providers: ProviderCollection, workerRequest: WorkerRequest, context: { awsRequestId: string }) {
+export async function setupConfig(providers: ProviderCollection, workerRequest: WorkerRequest, context: { awsRequestId: string, environmentVariables: EnvironmentVariables }) {
     const logger = workerRequest.logger;
     const table = await providers.dbTableProvider.get(TableName);
 

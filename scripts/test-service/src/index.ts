@@ -2,7 +2,7 @@ import * as fs from "fs";
 import * as AWS from "aws-sdk";
 
 import { AuthProvider, ResourceManager, ResourceManagerConfig } from "@mcma/client";
-import { Job, JobParameterBag, JobProfile, JobStatus, McmaException, TransformJob, Utils } from "@mcma/core";
+import { Job, JobParameterBag, JobProfile, JobStatus, McmaException, Utils, WorkflowJob } from "@mcma/core";
 import { awsV4Auth } from "@mcma/aws-client";
 
 const AWS_CREDENTIALS = "../../deployment/aws-credentials.json";
@@ -37,10 +37,9 @@ async function startJob(resourceManager: ResourceManager) {
         throw new McmaException("JobProfile not found");
     }
 
-    let job = new TransformJob({
+    let job = new WorkflowJob({
         jobProfileId: jobProfile.id,
-        jobInput: new JobParameterBag({
-        })
+        jobInput: new JobParameterBag({})
     });
 
     return resourceManager.create(job);

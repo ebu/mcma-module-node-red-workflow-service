@@ -15,7 +15,7 @@ file("${project.rootDir}/version.properties").withInputStream {
 }
 
 copyPackageJson {
-    filter { line -> line.replaceAll('"version": "0.0.0"', '"version": "' + props.get("MODULE_VERSION") + '"')}
+    filter { line -> line.replaceAll('"version": "x.y.z"', '"version": "' + props.get("MODULE_VERSION") + '"')}
 }
 
 npmPack.dependsOn copyHtml

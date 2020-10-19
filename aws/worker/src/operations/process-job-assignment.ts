@@ -2,7 +2,7 @@ import { ECS } from "aws-sdk";
 import axios, { AxiosInstance } from "axios";
 import { v4 as uuidv4 } from "uuid";
 
-import { getTableName, JobParameterBag, JobStatus, Logger, McmaException, ProblemDetail, WorkflowJob, McmaTrackerProperties } from "@mcma/core";
+import { EnvironmentVariables, JobParameterBag, JobStatus, Logger, McmaException, McmaTrackerProperties, ProblemDetail, WorkflowJob } from "@mcma/core";
 import { ProcessJobAssignmentHelper, ProviderCollection, WorkerRequest } from "@mcma/worker";
 import { DocumentDatabaseTable } from "@mcma/data";
 
@@ -10,7 +10,7 @@ import { NodeRedFlow, NodeRedFlowConfig, NodeRedFlowNode, NodeRedWorkflow } from
 
 const { EcsClusterId, EcsNodeRedServiceName, TableName, PublicUrl } = process.env;
 
-export async function processJobAssignment(providers: ProviderCollection, workerRequest: WorkerRequest, context: { awsRequestId: string }) {
+export async function processJobAssignment(providers: ProviderCollection, workerRequest: WorkerRequest, context: { awsRequestId: string, environmentVariables: EnvironmentVariables }) {
     if (!workerRequest) {
         throw new McmaException("request must be provided");
     }
@@ -21,8 +21,8 @@ export async function processJobAssignment(providers: ProviderCollection, worker
         throw new McmaException("request.input does not specify a jobAssignmentDatabaseId");
     }
 
-    const dbTable = await providers.dbTableProvider.get(getTableName(providers.contextVariableProvider));
-    const resourceManager = providers.resourceManagerProvider.get(providers.contextVariableProvider);
+    const dbTable = await providers.dbTableProvider.get(TableName);
+    const resourceManager = providers.resourceManagerProvider.get(context.environmentVariables);
     const jobAssignmentHelper = new ProcessJobAssignmentHelper<WorkflowJob>(dbTable, resourceManager, workerRequest);
 
     const mutex = dbTable.createMutex(workerRequest.input.jobAssignmentDatabaseId, context.awsRequestId);
@@ -67,7 +67,7 @@ export async function processJobAssignment(providers: ProviderCollection, worker
     }
 }
 
-async function executeWorkflow(providers: ProviderCollection, jobAssignmentHelper: ProcessJobAssignmentHelper<WorkflowJob>, context: { awsRequestId: string }) {
+async function executeWorkflow(providers: ProviderCollection, jobAssignmentHelper: ProcessJobAssignmentHelper<WorkflowJob>, context: { awsRequestId: string, environmentVariables: EnvironmentVariables }) {
     const logger = jobAssignmentHelper.logger;
 
     try {

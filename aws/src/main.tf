@@ -189,6 +189,8 @@ resource "aws_lambda_function" "api_handler" {
       TableName             = aws_dynamodb_table.service_table.name
       PublicUrl             = local.service_url
       WorkerFunctionId      = local.worker_lambda_name
+      ServicesUrl           = var.service_registry.services_url
+      ServicesAuthType      = var.service_registry.auth_type
       EcsClusterId          = var.ecs_cluster.id
       EcsNodeRedServiceName = aws_ecs_service.nodered.name
     }
@@ -333,14 +335,6 @@ resource "aws_apigatewayv2_stage" "service_api" {
   api_id      = aws_apigatewayv2_api.service_api.id
   name        = var.stage_name
   auto_deploy = true
-
-  stage_variables = {
-    TableName        = aws_dynamodb_table.service_table.name
-    PublicUrl        = local.service_url
-    ServicesUrl      = var.service_registry.services_url
-    ServicesAuthType = var.service_registry.auth_type
-    WorkerFunctionId = local.worker_lambda_name
-  }
 
   default_route_settings {
     data_trace_enabled       = var.xray_tracing_enabled
