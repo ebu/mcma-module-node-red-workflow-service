@@ -1,16 +1,16 @@
 import { ECS } from "aws-sdk";
 import axios, { AxiosInstance } from "axios";
-import { v4 as uuidv4 } from "uuid";
+import * as RED from "@node-red/util";
 
-import { EnvironmentVariables, JobParameterBag, JobStatus, Logger, McmaException, McmaTrackerProperties, ProblemDetail, WorkflowJob } from "@mcma/core";
+import { JobParameterBag, JobStatus, Logger, McmaException, ProblemDetail, WorkflowJob } from "@mcma/core";
 import { ProcessJobAssignmentHelper, ProviderCollection, WorkerRequest } from "@mcma/worker";
 import { DocumentDatabaseTable } from "@mcma/data";
 
-import { NodeRedFlow, NodeRedFlowConfig, NodeRedFlowNode, NodeRedWorkflow } from "@local/nodered";
+import { NodeRedFlow, NodeRedFlowConfig, NodeRedFlowNode, NodeRedWorkflow, NodeRedWorkflowExecution } from "@local/node-red";
 
 const { EcsClusterId, EcsNodeRedServiceName, TableName, PublicUrl } = process.env;
 
-export async function processJobAssignment(providers: ProviderCollection, workerRequest: WorkerRequest, context: { awsRequestId: string, environmentVariables: EnvironmentVariables }) {
+export async function processJobAssignment(providers: ProviderCollection, workerRequest: WorkerRequest, context: { awsRequestId: string }) {
     if (!workerRequest) {
         throw new McmaException("request must be provided");
     }
@@ -22,7 +22,7 @@ export async function processJobAssignment(providers: ProviderCollection, worker
     }
 
     const dbTable = await providers.dbTableProvider.get(TableName);
-    const resourceManager = providers.resourceManagerProvider.get(context.environmentVariables);
+    const resourceManager = providers.resourceManagerProvider.get();
     const jobAssignmentHelper = new ProcessJobAssignmentHelper<WorkflowJob>(dbTable, resourceManager, workerRequest);
 
     const mutex = dbTable.createMutex(workerRequest.input.jobAssignmentDatabaseId, context.awsRequestId);
@@ -67,14 +67,14 @@ export async function processJobAssignment(providers: ProviderCollection, worker
     }
 }
 
-async function executeWorkflow(providers: ProviderCollection, jobAssignmentHelper: ProcessJobAssignmentHelper<WorkflowJob>, context: { awsRequestId: string, environmentVariables: EnvironmentVariables }) {
+async function executeWorkflow(providers: ProviderCollection, jobAssignmentHelper: ProcessJobAssignmentHelper<WorkflowJob>, context: { awsRequestId: string }) {
     const logger = jobAssignmentHelper.logger;
 
     try {
         logger.info(`Processing ${jobAssignmentHelper.profile.name} request with jobInput:`);
         logger.info(jobAssignmentHelper.jobInput);
 
-        let table = await providers.dbTableProvider.get(TableName);
+        const table = await providers.dbTableProvider.get(TableName);
 
         const workflowId: string = jobAssignmentHelper.profile.custom.noderedWorkflowId;
         const workflowDatabaseId = workflowId.substring(PublicUrl.length);
@@ -117,11 +117,14 @@ async function executeWorkflow(providers: ProviderCollection, jobAssignmentHelpe
         logger.info("Syncing workflows to service");
         await syncWorkflowsToService(noderedService, table, logger);
 
-        const jobAssignmentGuid = jobAssignmentHelper.jobAssignmentDatabaseId.substring(17);
+        logger.info("Syncing workflow monitor to service");
+        await syncWorkflowMonitorToService(noderedService, logger);
 
         logger.info(`Invoking workflow ${workflow.name}`);
+        const workflowMutex = table.createMutex(workflowDatabaseId, context.awsRequestId);
+        await workflowMutex.lock();
         try {
-            await invokeNodeRedFlow(noderedService, workflow, jobAssignmentGuid, jobAssignmentHelper.jobInput, jobAssignmentHelper.jobAssignment.tracker);
+            await invokeNodeRedFlow(noderedService, workflowDatabaseId, workflow, table, jobAssignmentHelper);
         } catch (error) {
             await jobAssignmentHelper.fail({
                 type: "uri://mcma.ebu.ch/rfc7807/nodered-workflow-service/workflow-invocation-error",
@@ -130,6 +133,8 @@ async function executeWorkflow(providers: ProviderCollection, jobAssignmentHelpe
                 stacktrace: error.stacktrace,
             });
             return;
+        } finally {
+            await workflowMutex.unlock();
         }
 
         await jobAssignmentHelper.updateJobAssignmentStatus(JobStatus.Running);
@@ -217,6 +222,26 @@ async function getServiceIpAddress(logger: Logger): Promise<string> {
     return privateIPv4Address;
 }
 
+async function syncWorkflowMonitorToService(noderedService: AxiosInstance, logger: Logger) {
+    const response = await noderedService.get("flow/global");
+    const flow = response.data;
+
+    if (!flow.configs?.find((c: NodeRedFlowConfig) => c.type === "mcma-workflow-monitor")) {
+        if (!Array.isArray(flow.configs)) {
+            flow.configs = [];
+        }
+
+        logger.info(`Updating global flow configuration now including mcma-workflow-monitor`);
+        flow.configs.push({
+            id: RED.util.generateId(),
+            type: "mcma-workflow-monitor",
+            z: "",
+            name: "Workflow Monitor"
+        });
+        await noderedService.put("flow/global", flow);
+    }
+}
+
 async function syncWorkflowsToService(noderedService: AxiosInstance, table: DocumentDatabaseTable, logger: Logger) {
     const existingFlows = await getExistingFlows(noderedService);
     logger.info({ existingFlows });
@@ -254,19 +279,19 @@ async function syncWorkflowsToService(noderedService: AxiosInstance, table: Docu
 
 function convertToFlow(workflow: NodeRedWorkflow): NodeRedFlow {
     const tab = workflow.definition.find(n => n.type === "tab");
-    const nodes: NodeRedFlowNode[] = workflow.definition.filter(n => n.z === tab.id && !isNaN(n.x));
-    const configs: NodeRedFlowConfig[] = workflow.definition.filter(n => n.type !== "tab" && n.type !== "subflow" && isNaN(n.x));
+    const nodes: NodeRedFlowNode[] = <NodeRedFlowNode[]>workflow.definition.filter(n => n.z === tab.id && !isNaN(n.x));
+    const configs: NodeRedFlowConfig[] = <NodeRedFlowConfig[]>workflow.definition.filter(n => n.type !== "tab" && n.type !== "subflow" && isNaN(n.x));
 
-    const tabId = tab?.id ?? uuidv4().replace(/-/g, "");
+    const tabId = tab?.id ?? RED.util.generateId();
 
     // replacing node ids with unique ids to prevent collision when pushing to service
     const idMap = new Map<string, string>();
     for (const node of nodes) {
-        idMap.set(node.id, uuidv4().replace(/-/g, ""));
+        idMap.set(node.id, RED.util.generateId());
         node.id = idMap.get(node.id);
     }
     for (const config of configs) {
-        idMap.set(config.id, uuidv4().replace(/-/g, ""));
+        idMap.set(config.id, RED.util.generateId());
         config.id = idMap.get(config.id);
         config.z = tabId;
     }
@@ -287,7 +312,7 @@ function convertToFlow(workflow: NodeRedWorkflow): NodeRedFlow {
     let workflowCompleteNode = nodes.find(n => n.type === "mcma-workflow-complete");
     if (!workflowCompleteNode) {
         workflowCompleteNode = {
-            id: uuidv4().replace(/-/g, ""),
+            id: RED.util.generateId(),
             type: "mcma-workflow-complete",
             z: tabId,
             name: "",
@@ -302,7 +327,7 @@ function convertToFlow(workflow: NodeRedWorkflow): NodeRedFlow {
     let workflowStartNode = nodes.find(n => n.type === "mcma-workflow-start");
     if (!workflowStartNode) {
         workflowStartNode = {
-            id: uuidv4().replace(/-/g, ""),
+            id: RED.util.generateId(),
             type: "mcma-workflow-start",
             z: tabId,
             name: "",
@@ -345,13 +370,44 @@ async function getExistingFlows(noderedService: AxiosInstance): Promise<NodeRedF
     return existingFlows;
 }
 
-async function invokeNodeRedFlow(noderedService: AxiosInstance, workflow: NodeRedWorkflow, jobAssignmentGuid: string, jobInput: JobParameterBag, tracker: McmaTrackerProperties) {
-    const payload = {
-        executionId: jobAssignmentGuid,
-        input: jobInput,
-        output: new JobParameterBag(),
-        tracker
+async function getFlowByHash(noderedService: AxiosInstance, workflowHash: string): Promise<NodeRedFlow> {
+    const response = await noderedService.get("flows");
+
+    for (const node of response.data) {
+        if (node.type === "tab" && node.info === workflowHash) {
+            const response = await noderedService.get(`flow/${node.id}`);
+            return response.data;
+        }
+    }
+
+    throw new McmaException(`Flow with hash '${workflowHash}' not found`);
+}
+
+async function invokeNodeRedFlow(noderedService: AxiosInstance, workflowDatabaseId: string, workflow: NodeRedWorkflow, table: DocumentDatabaseTable, jobAssignmentHelper: ProcessJobAssignmentHelper<WorkflowJob>) {
+    const workflowExecution = new NodeRedWorkflowExecution({
+        status: JobStatus.Running,
+        dateStarted: new Date(),
+        input: jobAssignmentHelper.jobInput,
+        jobId: jobAssignmentHelper.job.id,
+        jobAssignmentId: jobAssignmentHelper.jobAssignment.id
+    });
+    const workflowExecutionDatabaseId = `${workflowDatabaseId}/executions/${workflowExecution.dateStarted.getTime()}`;
+    workflowExecution.onCreate(PublicUrl + workflowExecutionDatabaseId);
+    await table.put(workflowExecutionDatabaseId, workflowExecution);
+
+    const flow = await getFlowByHash(noderedService, workflow.hash);
+    const workflowExecutionFlowDatabaseId = `${workflowExecutionDatabaseId}/flow`;
+    await table.put(workflowExecutionFlowDatabaseId, flow);
+
+    const data = {
+        jobAssignmentDatabaseId: jobAssignmentHelper.jobAssignmentDatabaseId,
+        workflowExecutionDatabaseId: workflowExecutionDatabaseId,
+        payload: {
+            input: jobAssignmentHelper.jobInput,
+            output: new JobParameterBag(),
+        },
+        tracker: jobAssignmentHelper.jobAssignment.tracker,
     };
 
-    await noderedService.post(workflow.hash, payload);
+    await noderedService.post(workflow.hash, data);
 }

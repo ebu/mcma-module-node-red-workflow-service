@@ -2,13 +2,13 @@ import * as npm from "npm";
 import { v4 as uuidv4 } from "uuid";
 import { writeFileSync } from "fs";
 
-import { EnvironmentVariables, Logger } from "@mcma/core";
+import { Logger } from "@mcma/core";
 import { ProviderCollection, WorkerRequest } from "@mcma/worker";
 import { DocumentDatabaseTable } from "@mcma/data";
 
 const { TableName } = process.env;
 
-export async function npmInstall(providers: ProviderCollection, workerRequest: WorkerRequest, context: { awsRequestId: string, environmentVariables: EnvironmentVariables }) {
+export async function npmInstall(providers: ProviderCollection, workerRequest: WorkerRequest, context: { awsRequestId: string }) {
     const logger = workerRequest.logger;
 
     const table = await providers.dbTableProvider.get(TableName);

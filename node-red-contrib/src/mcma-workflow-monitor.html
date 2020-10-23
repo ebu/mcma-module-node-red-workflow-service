@@ -1,0 +1,18 @@
+<script type="text/html" data-template-name="mcma-workflow-monitor">
+    <div class="form-row">
+        <label for="node-config-input-name"><i class="fa fa-bookmark"></i> Name</label>
+        <input type="text" id="node-config-input-name">
+    </div>
+</script>
+
+<script type="text/javascript">
+    RED.nodes.registerType("mcma-workflow-monitor", {
+        category: "config",
+        defaults: {
+            name: { value: "", required: true }
+        },
+        label: function () {
+            return this.name || "Unnamed";
+        },
+    });
+</script>

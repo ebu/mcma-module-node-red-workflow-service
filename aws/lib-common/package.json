@@ -1,5 +1,5 @@
 {
-    "name": "@local/nodered",
+    "name": "@local/node-red",
     "version": "0.0.0",
     "description": "Local helper library for sharing code between api-handler and worker",
     "private": true,
@@ -10,17 +10,17 @@
         "uuid": "^7.0.3"
     },
     "devDependencies": {
-        "@mcma/aws-dynamodb": "0.13.16",
-        "@mcma/core": "0.13.16",
-        "@mcma/data": "0.13.16",
+        "@mcma/aws-dynamodb": "0.13.17-RC2",
+        "@mcma/core": "0.13.17-RC2",
+        "@mcma/data": "0.13.17-RC2",
         "@types/node": "^10.17.21",
         "@types/uuid": "^7.0.3",
         "aws-sdk": "^2.631.0"
     },
     "peerDependencies": {
-        "@mcma/aws-dynamodb": "0.13.16",
-        "@mcma/core": "0.13.16",
-        "@mcma/data": "0.13.16",
+        "@mcma/aws-dynamodb": "0.13.17-RC2",
+        "@mcma/core": "0.13.17-RC2",
+        "@mcma/data": "0.13.17-RC2",
         "aws-sdk": "^2.631.0"
     }
 }

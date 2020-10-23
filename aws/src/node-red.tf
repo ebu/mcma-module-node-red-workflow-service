@@ -132,16 +132,12 @@ resource "aws_ecs_task_definition" "nodered" {
 
   container_definitions = jsonencode([
     {
-      name: "nodered",
+      name: "node-red",
       cpu: 0,
       environment: concat(var.nodered_environment_variables, [
         {
           name: "LogGroupName",
           value: var.log_group.name
-        },
-        {
-          name: "WorkerFunctionId",
-          value: local.worker_lambda_name
         },
         {
           name: "ServicesUrl",
@@ -152,13 +148,13 @@ resource "aws_ecs_task_definition" "nodered" {
           value: var.service_registry.auth_type
         }]),
       essential: true,
-      image: "nodered/node-red:1.1.3",
+      image: "nodered/node-red:1.2.2",
       logConfiguration: {
         logDriver: "awslogs",
         options: {
           "awslogs-group": var.log_group.name,
           "awslogs-region": var.aws_region,
-          "awslogs-stream-prefix": "ecs-nodered"
+          "awslogs-stream-prefix": "ecs"
         }
       },
       mountPoints: [

@@ -1,17 +1,17 @@
 import { ProviderCollection, WorkerRequest } from "@mcma/worker";
-import { EnvironmentVariables, JobProfile, McmaException, Service } from "@mcma/core";
+import { JobProfile, McmaException, Service } from "@mcma/core";
 
-import { NodeRedWorkflow } from "@local/nodered";
+import { NodeRedWorkflow } from "@local/node-red";
 
 const { PublicUrl } = process.env;
 
-export async function registerWorkflow(providers: ProviderCollection, workerRequest: WorkerRequest, context: { awsRequestId: string, environmentVariables: EnvironmentVariables }) {
+export async function registerWorkflow(providers: ProviderCollection, workerRequest: WorkerRequest, context: { awsRequestId: string }) {
     const logger = workerRequest.logger;
 
     logger.info(workerRequest.input);
     const workflow: NodeRedWorkflow = workerRequest.input.workflow;
 
-    const resourceManager = providers.resourceManagerProvider.get(context.environmentVariables);
+    const resourceManager = providers.resourceManagerProvider.get();
 
     const services = await resourceManager.query(Service);
     const noderedService = services.find(s => s.resources.find(r => r.httpEndpoint.startsWith(PublicUrl)));

@@ -15,10 +15,28 @@ file("${project.rootDir}/version.properties").withInputStream {
 }
 
 copyPackageJson {
-    filter { line -> line.replaceAll('"version": "x.y.z"', '"version": "' + props.get("MODULE_VERSION") + '"')}
+    filter { line -> line.replaceAll('"version": "0.0.0"', '"version": "' + props.get("MODULE_VERSION") + '"')}
 }
 
 npmPack.dependsOn copyHtml
+
+task installLocal(type: Exec) {
+    dependsOn npmPack
+    commandLine npmExecutable
+    args "install", file("build/dist/mcma-node-red-contrib-mcma-${props.get("MODULE_VERSION")}.tgz").path
+    workingDir "C:/apps/nodered"
+
+    doLast {
+        exec {
+            commandLine "docker"
+            args "stop", "nodered"
+        }
+        exec {
+            commandLine "docker"
+            args "start", "nodered"
+        }
+    }
+}
 
 task npmPublishLocal(type: Exec) {
     dependsOn ":verifyNodeJS"

@@ -1,7 +1,6 @@
 import { Context } from "aws-lambda";
 import * as AWS from "aws-sdk";
 
-import { EnvironmentVariables } from "@mcma/core";
 import { AuthProvider, ResourceManagerProvider } from "@mcma/client";
 import { ProviderCollection, Worker, WorkerRequest, WorkerRequestProperties } from "@mcma/worker";
 import { AwsCloudWatchLoggerProvider } from "@mcma/aws-logger";
@@ -10,8 +9,6 @@ import { DynamoDbTableProvider } from "@mcma/aws-dynamodb";
 import { npmInstall, processJobAssignment, registerWorkflow, setupConfig, unregisterWorkflow, updateJobAssignment } from "./operations";
 
 const { LogGroupName } = process.env;
-
-const environmentVariables = EnvironmentVariables.getInstance();
 
 const authProvider = new AuthProvider().add(awsV4Auth(AWS));
 const dbTableProvider = new DynamoDbTableProvider();
@@ -43,8 +40,7 @@ export async function handler(event: WorkerRequestProperties, context: Context) 
         logger.debug(context);
 
         await worker.doWork(new WorkerRequest(event, logger), {
-            awsRequestId: context.awsRequestId,
-            environmentVariables
+            awsRequestId: context.awsRequestId
         });
     } catch (error) {
         logger.error("Error occurred when handling operation '" + event.operationName + "'");

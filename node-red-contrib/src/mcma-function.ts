@@ -3,7 +3,7 @@ import * as vm from "vm";
 import * as util from "util";
 
 module.exports = function (RED: Red) {
-    function FunctionNode(config: NodeProperties) {
+    function FunctionNode(config: NodeProperties & { [key: string]: any }) {
         RED.nodes.createNode(this, config);
         const impl = new Impl(this, config, RED);
 

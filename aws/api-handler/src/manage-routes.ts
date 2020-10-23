@@ -4,39 +4,39 @@ import { ECS } from "aws-sdk";
 import * as dirTree from "directory-tree";
 
 import { McmaException } from "@mcma/core";
-import { HttpStatusCode, McmaApiRequestContext } from "@mcma/api";
+import { HttpStatusCode, McmaApiRequestContext, McmaApiRouteCollection } from "@mcma/api";
 import { invokeLambdaWorker } from "@mcma/aws-lambda-worker-invoker";
 
 const ecs = new ECS();
 
 const { EcsClusterId, EcsNodeRedServiceName, WorkerFunctionId } = process.env;
 
-export async function listStorage(requestContext: McmaApiRequestContext) {
+async function listStorage(requestContext: McmaApiRequestContext) {
     const tree = dirTree("/mnt/nodered");
 
     requestContext.setResponseBody(tree);
 }
 
-export async function getSettings(requestContext: McmaApiRequestContext) {
+async function getSettings(requestContext: McmaApiRequestContext) {
     const buf = readFileSync("/mnt/nodered/settings.js");
 
     requestContext.setResponseBody(buf.toString());
     requestContext.response.headers["Content-Type"] = "application/javascript";
 }
 
-export async function setSettings(requestContext: McmaApiRequestContext) {
+async function setSettings(requestContext: McmaApiRequestContext) {
     writeFileSync("/mnt/nodered/settings.js", requestContext.request.body);
 
     requestContext.setResponseStatusCode(HttpStatusCode.NoContent);
 }
 
-export async function resetService(requestContext: McmaApiRequestContext) {
+async function resetService(requestContext: McmaApiRequestContext) {
     execSync("rm -rf /mnt/nodered/* /mnt/nodered/.[!.]* /mnt/nodered/.??*");
 
     await restartService(requestContext);
 }
 
-export async function setupConfig(requestContext: McmaApiRequestContext) {
+async function setupConfig(requestContext: McmaApiRequestContext) {
     await invokeLambdaWorker(WorkerFunctionId, {
         operationName: "SetupConfig",
         input: {},
@@ -46,7 +46,7 @@ export async function setupConfig(requestContext: McmaApiRequestContext) {
     requestContext.setResponseStatusCode(HttpStatusCode.Accepted);
 }
 
-export async function restartService(requestContext: McmaApiRequestContext) {
+async function restartService(requestContext: McmaApiRequestContext) {
     await ecs.updateService({
         service: EcsNodeRedServiceName,
         cluster: EcsClusterId,
@@ -56,7 +56,7 @@ export async function restartService(requestContext: McmaApiRequestContext) {
     requestContext.setResponseStatusCode(HttpStatusCode.Accepted);
 }
 
-export async function npmInstall(requestContext: McmaApiRequestContext) {
+async function npmInstall(requestContext: McmaApiRequestContext) {
     let base64: string = undefined;
     let packages: string[] = undefined;
 
@@ -79,3 +79,12 @@ export async function npmInstall(requestContext: McmaApiRequestContext) {
 
     requestContext.setResponseStatusCode(HttpStatusCode.Accepted);
 }
+
+export const manageRoutes = new McmaApiRouteCollection()
+    .addRoute("GET", "/manage/list-storage", listStorage)
+    .addRoute("GET", "/manage/settings", getSettings)
+    .addRoute("PUT", "/manage/settings", setSettings)
+    .addRoute("POST", "/manage/setup-config", setupConfig)
+    .addRoute("POST", "/manage/reset-service", resetService)
+    .addRoute("POST", "/manage/restart-service", restartService)
+    .addRoute("POST", "/manage/npm-install", npmInstall);

@@ -1,9 +1,11 @@
 import { ProcessJobAssignmentHelper, ProviderCollection, WorkerRequest } from "@mcma/worker";
-import { EnvironmentVariables, JobStatus, McmaException, ProblemDetail, ProblemDetailProperties, WorkflowJob } from "@mcma/core";
+import { JobStatus, McmaException, onResourceUpsert, ProblemDetail, ProblemDetailProperties, WorkflowJob } from "@mcma/core";
+
+import { NodeRedWorkflowExecutionProperties } from "@local/node-red";
 
 const { TableName } = process.env;
 
-export async function updateJobAssignment(providers: ProviderCollection, workerRequest: WorkerRequest, context: { awsRequestId: string, environmentVariables: EnvironmentVariables }) {
+export async function updateJobAssignment(providers: ProviderCollection, workerRequest: WorkerRequest, context: { awsRequestId: string }) {
     const logger = workerRequest.logger;
 
     if (!workerRequest) {
@@ -16,11 +18,11 @@ export async function updateJobAssignment(providers: ProviderCollection, workerR
         throw new McmaException("request.input does not specify a jobAssignmentDatabaseId");
     }
 
-    const dbTable = await providers.dbTableProvider.get(TableName);
-    const resourceManager = providers.resourceManagerProvider.get(context.environmentVariables);
-    const jobAssignmentHelper = new ProcessJobAssignmentHelper<WorkflowJob>(dbTable, resourceManager, workerRequest);
+    const table = await providers.dbTableProvider.get(TableName);
+    const resourceManager = providers.resourceManagerProvider.get();
+    const jobAssignmentHelper = new ProcessJobAssignmentHelper<WorkflowJob>(table, resourceManager, workerRequest);
 
-    const mutex = dbTable.createMutex(workerRequest.input.jobAssignmentDatabaseId, context.awsRequestId);
+    const mutex = table.createMutex(workerRequest.input.jobAssignmentDatabaseId, context.awsRequestId);
 
     await mutex.lock();
     try {
@@ -33,12 +35,22 @@ export async function updateJobAssignment(providers: ProviderCollection, workerR
             return;
         }
 
+        const workflowExecution = await table.get<NodeRedWorkflowExecutionProperties>(workerRequest.input.workflowExecutionDatabaseId);
+
         switch (workerRequest.input.status) {
             case JobStatus.Completed:
                 if (workerRequest.input.output) {
                     for (const key of Object.keys(workerRequest.input.output)) {
                         jobAssignmentHelper.jobOutput.set(key, workerRequest.input.output[key]);
                     }
+                }
+
+                if (workflowExecution) {
+                    workflowExecution.status = JobStatus.Completed;
+                    workflowExecution.dateFinished = new Date();
+                    workflowExecution.output = jobAssignmentHelper.jobOutput;
+                    onResourceUpsert(workflowExecution, workflowExecution.id);
+                    await table.put(workerRequest.input.workflowExecutionDatabaseId, workflowExecution);
                 }
 
                 await jobAssignmentHelper.complete();
@@ -74,6 +86,14 @@ export async function updateJobAssignment(providers: ProviderCollection, workerR
                         type: "uri://mcma.ebu.ch/rfc7807/nodered-workflow-service/unknown-execution-failure",
                         title: "Workflow execution failed due to unknown reason"
                     };
+                }
+
+                if (workflowExecution) {
+                    workflowExecution.status = JobStatus.Failed;
+                    workflowExecution.dateFinished = new Date();
+                    workflowExecution.error = new ProblemDetail(problemDetail);
+                    onResourceUpsert(workflowExecution, workflowExecution.id);
+                    await table.put(workerRequest.input.workflowExecutionDatabaseId, workflowExecution);
                 }
 
                 await jobAssignmentHelper.fail(problemDetail);

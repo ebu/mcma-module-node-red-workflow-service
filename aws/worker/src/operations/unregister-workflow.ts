@@ -1,15 +1,15 @@
 import { ProviderCollection, WorkerRequest } from "@mcma/worker";
-import { EnvironmentVariables, JobProfile, McmaException, Service } from "@mcma/core";
+import { JobProfile, McmaException, Service } from "@mcma/core";
 
 const { PublicUrl } = process.env;
 
-export async function unregisterWorkflow(providers: ProviderCollection, workerRequest: WorkerRequest, context: { awsRequestId: string, environmentVariables: EnvironmentVariables }) {
+export async function unregisterWorkflow(providers: ProviderCollection, workerRequest: WorkerRequest, context: { awsRequestId: string }) {
     const logger = workerRequest.logger;
 
     logger.info(workerRequest.input);
     const workflow = workerRequest.input.workflow;
 
-    const resourceManager = providers.resourceManagerProvider.get(context.environmentVariables);
+    const resourceManager = providers.resourceManagerProvider.get();
 
     const services = await resourceManager.query(Service);
     const noderedService = services.find(s => s.resources.find(r => r.httpEndpoint.startsWith(PublicUrl)));

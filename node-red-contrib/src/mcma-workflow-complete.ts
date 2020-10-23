@@ -3,7 +3,7 @@ import { existsSync, readFileSync } from "fs";
 import * as vm from "vm";
 
 module.exports = function (RED: Red) {
-    function WorkflowCompleteNode(config: NodeProperties) {
+    function WorkflowCompleteNode(config: NodeProperties & { [key: string]: any }) {
         RED.nodes.createNode(this, config);
         const impl = new Impl(this, config, RED);
 
@@ -60,7 +60,8 @@ class Impl {
                     require,
                     process,
                     input: {
-                        jobAssignmentDatabaseId: "/job-assignments/" + msg._msgid,
+                        jobAssignmentDatabaseId: msg.jobAssignmentDatabaseId,
+                        workflowExecutionDatabaseId: msg.workflowExecutionDatabaseId,
                         status: "Completed",
                         output: msg.payload?.output
                     },

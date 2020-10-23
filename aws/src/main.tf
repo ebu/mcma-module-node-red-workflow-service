@@ -237,6 +237,7 @@ resource "aws_lambda_function" "worker" {
       LogGroupName          = var.log_group.name
       TableName             = aws_dynamodb_table.service_table.name
       PublicUrl             = local.service_url
+      WorkerFunctionId      = local.worker_lambda_name
       ServicesUrl           = var.service_registry.services_url
       ServicesAuthType      = var.service_registry.auth_type
       EcsClusterId          = var.ecs_cluster.id

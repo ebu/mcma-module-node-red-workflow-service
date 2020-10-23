@@ -4,14 +4,15 @@
     "private": true,
     "license": "Apache-2.0",
     "dependencies": {
-        "@mcma/aws-client": "0.13.16",
-        "@mcma/aws-dynamodb": "0.13.16",
-        "@mcma/aws-logger": "0.13.16",
-        "@mcma/aws-s3": "0.13.16",
-        "@mcma/core": "0.13.16",
-        "@mcma/client": "0.13.16",
-        "@mcma/data": "0.13.16",
-        "@mcma/worker": "0.13.16",
+        "@mcma/aws-client": "0.13.17-RC2",
+        "@mcma/aws-dynamodb": "0.13.17-RC2",
+        "@mcma/aws-logger": "0.13.17-RC2",
+        "@mcma/aws-s3": "0.13.17-RC2",
+        "@mcma/core": "0.13.17-RC2",
+        "@mcma/client": "0.13.17-RC2",
+        "@mcma/data": "0.13.17-RC2",
+        "@mcma/worker": "0.13.17-RC2",
+        "@node-red/util": "^1.2.2",
         "aws-sdk": "^2.631.0",
         "aws-xray-sdk": "^3.0.0",
         "npm": "^6.14.8",
@@ -20,6 +21,7 @@
     "devDependencies": {
         "@types/aws-lambda": "^8.10.63",
         "@types/node": "^12.12.55",
+        "@types/node-red__util": "^1.1.1",
         "@types/npm": "^2.0.31",
         "@types/uuid": "^8.3.0"
     }

@@ -3,7 +3,7 @@ import * as bodyParser from "body-parser";
 import * as cookieParser from "cookie-parser";
 
 module.exports = function (RED: Red) {
-    function WorkflowStartNode(config: NodeProperties) {
+    function WorkflowStartNode(config: NodeProperties & { [key: string]: any }) {
         RED.nodes.createNode(this, config);
         const impl = new Impl(this, config, RED);
 
@@ -58,14 +58,8 @@ class Impl {
     }
 
     callback(req, res) {
-        const msg = {
-            _msgid: req.body.executionId,
-            payload: {
-                input: req.body.input,
-                output: req.body.output,
-            },
-            tracker: req.body.tracker,
-        };
+        const msg = req.body;
+        msg._msgid = this.RED.util.generateId();
 
         this.node.send([msg]);
 
@@ -73,7 +67,7 @@ class Impl {
         res.status(200).send();
     }
 
-    async onClose() {
+    onClose() {
         this.RED.httpNode._router.stack.forEach((route, i, routes) => {
             if (route.route && route.route.path === this.config.url && route.route.methods["post"]) {
                 routes.splice(i, 1);

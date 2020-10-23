@@ -1,6 +1,6 @@
 {
     "name": "@mcma/node-red-contrib-mcma",
-    "version": "x.y.z",
+    "version": "0.0.0",
     "description": "Nodes for running MCMA workflows in the MCMA Node-RED workflow service",
     "main": "index.js",
     "scripts": {
@@ -18,6 +18,7 @@
             "mcma-parameters": "mcma-parameters.js",
             "mcma-workflow-completed": "mcma-workflow-complete.js",
             "mcma-workflow-failed": "mcma-workflow-fail.js",
+            "mcma-workflow-monitor": "mcma-workflow-monitor.js",
             "mcma-workflow-start": "mcma-workflow-start.js"
         }
     },
@@ -27,6 +28,6 @@
     },
     "devDependencies": {
         "@types/node": "^10.17.24",
-        "@types/node-red": "^0.20.1"
+        "@types/node-red": "^0.20.2"
     }
 }
