@@ -48,6 +48,15 @@ export async function manageOperation(providers: ProviderCollection, workerReque
 async function resetConfig(logger: Logger) {
     execSync("rm -rf /mnt/nodered/* /mnt/nodered/.[!.]* /mnt/nodered/.??*");
 
+    const packageJson = `{
+    "name": "node-red-project",
+    "description": "A Node-RED Project",
+    "version": "0.0.1",
+    "private": true
+}`;
+
+    writeFileSync(`/mnt/nodered/package.json`, packageJson);
+
     await installPackages(["aws-sdk"], logger);
 
     const scriptDir = "/mnt/nodered/scripts";

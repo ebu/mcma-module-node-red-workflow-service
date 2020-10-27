@@ -24,10 +24,12 @@ export async function registerWorkflow(providers: ProviderCollection, workerRequ
         }
 
         const jobProfiles = await resourceManager.query(JobProfile);
-        const existingJobProfile = jobProfiles.find(jobProfile => jobProfile.custom?.noderedWorkflowId === workflow.id);
+        const jobProfileIds = jobProfiles.filter(jobProfile => jobProfile.custom?.nodeRedWorkflowId?.startsWith(PublicUrl))
+                                         .map(jobProfile => jobProfile.id);
 
         let jobProfile = buildJobProfile(workflow);
 
+        const existingJobProfile = jobProfiles.find(jobProfile => jobProfile.custom?.nodeRedWorkflowId === workflow.id);
         if (existingJobProfile) {
             jobProfile.id = existingJobProfile.id;
             jobProfile = await resourceManager.update(jobProfile);
@@ -35,10 +37,12 @@ export async function registerWorkflow(providers: ProviderCollection, workerRequ
             jobProfile = await resourceManager.create(jobProfile);
         }
 
-        if (!noderedService.jobProfileIds.includes(jobProfile.id)) {
-            noderedService.jobProfileIds.push(jobProfile.id);
-            await resourceManager.update(noderedService);
+        if (!jobProfileIds.includes(jobProfile.id)) {
+            jobProfileIds.push(jobProfile.id);
         }
+
+        noderedService.jobProfileIds = jobProfileIds;
+        await resourceManager.update(noderedService);
     } finally {
         await mutex.unlock();
     }
@@ -51,7 +55,7 @@ function buildJobProfile(workflow: NodeRedWorkflow): JobProfile {
         optionalInputParameters: workflow.optionalInputParameters,
         outputParameters: workflow.outputParameters,
         custom: {
-            noderedWorkflowId: workflow.id
+            nodeRedWorkflowId: workflow.id
         }
     });
 }

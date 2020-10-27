@@ -39,7 +39,7 @@ export async function processJobAssignment(providers: ProviderCollection, worker
             throw new McmaException("Job has type '" + jobAssignmentHelper.job["@type"] + "', which does not match expected job type 'WorkflowJob'.");
         }
 
-        if (!jobAssignmentHelper.profile.custom?.noderedWorkflowId?.startsWith(PublicUrl)) {
+        if (!jobAssignmentHelper.profile.custom?.nodeRedWorkflowId?.startsWith(PublicUrl)) {
             throw new McmaException("Job profile '" + jobAssignmentHelper.profile.name + "' is not supported.");
         }
 
@@ -76,7 +76,7 @@ async function executeWorkflow(providers: ProviderCollection, jobAssignmentHelpe
 
         const table = await providers.dbTableProvider.get(TableName);
 
-        const workflowId: string = jobAssignmentHelper.profile.custom.noderedWorkflowId;
+        const workflowId: string = jobAssignmentHelper.profile.custom.nodeRedWorkflowId;
         const workflowDatabaseId = workflowId.substring(PublicUrl.length);
 
         let workflow: NodeRedWorkflow;

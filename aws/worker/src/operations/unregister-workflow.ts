@@ -22,19 +22,21 @@ export async function unregisterWorkflow(providers: ProviderCollection, workerRe
         }
 
         const jobProfiles = await resourceManager.query(JobProfile);
-        const jobProfile = jobProfiles.find(jobProfile => jobProfile.custom?.noderedWorkflowId === workflow.id);
+        const jobProfileIds = jobProfiles.filter(jobProfile => jobProfile.custom?.nodeRedWorkflowId?.startsWith(PublicUrl))
+                                         .map(jobProfile => jobProfile.id);
 
-        if (!jobProfile) {
-            return;
+        const jobProfile = jobProfiles.find(jobProfile => jobProfile.custom?.nodeRedWorkflowId === workflow.id);
+        if (jobProfile) {
+            await resourceManager.delete(jobProfile);
+
+            const idx = jobProfileIds.indexOf(jobProfile.id);
+            if (idx >= 0) {
+                jobProfileIds.splice(idx, 1);
+            }
         }
 
-        const idx = noderedService.jobProfileIds.indexOf(jobProfile.id);
-        if (idx >= 0) {
-            noderedService.jobProfileIds.splice(idx, 1);
-            await resourceManager.update(noderedService);
-        }
-
-        await resourceManager.delete(jobProfile);
+        noderedService.jobProfileIds = jobProfileIds;
+        await resourceManager.update(noderedService);
     } finally {
         await mutex.unlock();
     }

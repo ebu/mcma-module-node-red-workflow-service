@@ -19,6 +19,7 @@ module.exports = function (RED: Red & { hooks: any }) {
 
 class Impl {
     private readonly script: vm.Script;
+    private lastUniqueId: number;
 
     constructor(private node: Node & { [key: string]: any }, private config: NodeProperties & { [key: string]: any }, private RED: Red & { hooks: any }) {
         try {
@@ -41,14 +42,12 @@ class Impl {
     }
 
     async onReceive(receiveEvent) {
-        const now = new Date();
-
         await this.addWorkflowExecutionEvent({
-            databaseId: receiveEvent.msg.workflowExecutionDatabaseId + "/events/" + now.getTime(),
+            databaseId: receiveEvent.msg.workflowExecutionDatabaseId + "/events/" + this.getUniqueId(),
             resource: {
                 type: "NodeReceived",
                 nodeId: receiveEvent.destination.id,
-                timestamp: now,
+                timestamp: new Date(),
                 payload: receiveEvent.msg.payload,
                 error: receiveEvent.msg.error,
             }
@@ -56,14 +55,12 @@ class Impl {
     }
 
     async onComplete(completeEvent) {
-        const now = new Date();
-
         await this.addWorkflowExecutionEvent({
-            databaseId: completeEvent.msg.workflowExecutionDatabaseId + "/events/" + now.getTime(),
+            databaseId: completeEvent.msg.workflowExecutionDatabaseId + "/events/" + this.getUniqueId(),
             resource: {
                 type: "NodeCompleted",
                 nodeId: completeEvent.node.id,
-                timestamp: now,
+                timestamp: new Date(),
                 payload: completeEvent.msg.payload,
                 error: completeEvent.error,
             }
@@ -95,5 +92,15 @@ class Impl {
 
     onClose() {
         this.RED.hooks.remove("*.mcma");
+    }
+
+    private getUniqueId(): number {
+        let uniqueId = Date.now();
+        if (uniqueId <= this.lastUniqueId) {
+            uniqueId = ++this.lastUniqueId;
+        } else {
+            this.lastUniqueId = uniqueId;
+        }
+        return uniqueId;
     }
 }
