@@ -1,4 +1,3 @@
-import { ECS } from "aws-sdk";
 import axios, { AxiosInstance } from "axios";
 import * as RED from "@node-red/util";
 
@@ -6,9 +5,10 @@ import { JobParameterBag, JobStatus, Logger, McmaException, ProblemDetail, Workf
 import { ProcessJobAssignmentHelper, ProviderCollection, WorkerRequest } from "@mcma/worker";
 import { DocumentDatabaseTable } from "@mcma/data";
 
-import { NodeRedFlow, NodeRedFlowConfig, NodeRedFlowNode, NodeRedWorkflow, NodeRedWorkflowExecution } from "@local/node-red";
+import { NodeRedFlow, NodeRedFlowConfig, NodeRedFlowNode, NodeRedWorkflow, NodeRedWorkflowExecution } from "@local/common";
+import { getContainerIpAddress } from "../utils";
 
-const { EcsClusterId, EcsNodeRedServiceName, TableName, PublicUrl } = process.env;
+const { TableName, PublicUrl } = process.env;
 
 export async function processJobAssignment(providers: ProviderCollection, workerRequest: WorkerRequest, context: { awsRequestId: string }) {
     if (!workerRequest) {
@@ -107,8 +107,8 @@ async function executeWorkflow(providers: ProviderCollection, jobAssignmentHelpe
             return;
         }
 
-        const ipAddress = await getServiceIpAddress(logger);
-        logger.info(`Found Node-RED instance on ipAddress ${ipAddress}`);
+        const ipAddress = await getContainerIpAddress(logger);
+        logger.info(`Found Node-RED instance on ip address ${ipAddress}`);
 
         const noderedService = axios.create({
             baseURL: `http://${ipAddress}:1880/`
@@ -161,65 +161,6 @@ async function validateJobInput(workflow: NodeRedWorkflow, jobInput: JobParamete
         }
     }
     return null;
-}
-
-async function getServiceIpAddress(logger: Logger): Promise<string> {
-    const ecs = new ECS();
-
-    logger.info("Listing tasks for cluster '" + EcsClusterId + "' and service '" + EcsNodeRedServiceName + "'");
-    const listTaskData = await ecs.listTasks({
-        cluster: EcsClusterId,
-        serviceName: EcsNodeRedServiceName
-    }).promise();
-    logger.info(listTaskData);
-
-    if (listTaskData.taskArns.length === 0) {
-        throw new McmaException("Failed to find a running task for service '" + EcsNodeRedServiceName + "'");
-    }
-
-    logger.info("Describing tasks");
-    const describeTaskData = await ecs.describeTasks({
-        cluster: EcsClusterId,
-        tasks: listTaskData.taskArns,
-    }).promise();
-    logger.info(describeTaskData);
-
-    logger.info("Finding IP address of suitable task");
-    let selectedTask = undefined;
-    let privateIPv4Address = undefined;
-
-    for (const task of describeTaskData.tasks) {
-        if (task.lastStatus !== "RUNNING" || task.desiredStatus !== "RUNNING") {
-            continue;
-        }
-        for (const attachment of task.attachments) {
-            if (attachment.type !== "ElasticNetworkInterface" || attachment.status !== "ATTACHED") {
-                continue;
-            }
-
-            privateIPv4Address = undefined;
-            for (const detail of attachment.details) {
-                if (detail.name === "privateIPv4Address") {
-                    privateIPv4Address = detail.value;
-                }
-            }
-
-            if (privateIPv4Address) {
-                break;
-            }
-        }
-
-        if (privateIPv4Address) {
-            selectedTask = task;
-            break;
-        }
-    }
-
-    if (!selectedTask) {
-        throw new McmaException("Failed to find a running task for service '" + EcsNodeRedServiceName + "'");
-    }
-
-    return privateIPv4Address;
 }
 
 async function syncWorkflowMonitorToService(noderedService: AxiosInstance, logger: Logger) {

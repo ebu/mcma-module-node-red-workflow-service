@@ -1,7 +1,7 @@
 import { ProcessJobAssignmentHelper, ProviderCollection, WorkerRequest } from "@mcma/worker";
 import { JobStatus, McmaException, onResourceUpsert, ProblemDetail, ProblemDetailProperties, WorkflowJob } from "@mcma/core";
 
-import { NodeRedWorkflowExecutionProperties } from "@local/node-red";
+import { NodeRedWorkflowExecutionProperties } from "@local/common";
 
 const { TableName } = process.env;
 

@@ -1,15 +1,14 @@
 import * as objectHash from "object-hash";
 
 import { McmaResource } from "@mcma/core";
-import { DefaultRouteCollection, HttpStatusCode, McmaApiRequestContext, McmaApiRouteCollection, buildStandardQuery } from "@mcma/api";
+import { DefaultRouteCollection, HttpStatusCode, McmaApiRequestContext, McmaApiRouteCollection } from "@mcma/api";
 import { invokeLambdaWorker } from "@mcma/aws-lambda-worker-invoker";
-import { DynamoDbTableProvider } from "@mcma/aws-dynamodb";
 
-import { NodeRedNode, NodeRedWorkflow, NodeRedWorkflowExecution } from "@local/node-red";
+import { NodeRedNode, NodeRedWorkflow } from "@local/common";
 
-const { WorkerFunctionId, TableName } = process.env;
+import { dbTableProvider, getResource, queryCollection } from "./common";
 
-const dbTableProvider = new DynamoDbTableProvider();
+const { WorkerFunctionId } = process.env;
 
 async function onBeforeWorkflowInsertUpdate(requestContext: McmaApiRequestContext): Promise<boolean> {
     if (!requestContext.hasRequestBody()) {
@@ -58,24 +57,6 @@ workflowRootRoutes.update.onStarted = onBeforeWorkflowInsertUpdate;
 workflowRootRoutes.update.onCompleted = onAfterWorkflowInsertUpdate;
 workflowRootRoutes.delete.onCompleted = onWorkflowDelete;
 
-async function queryCollection(requestContext: McmaApiRequestContext) {
-    const query = buildStandardQuery<NodeRedWorkflowExecution>(requestContext, false);
-
-    const table = await dbTableProvider.get(TableName);
-    const queryResults = await table.query(query);
-
-    requestContext.setResponseBody(queryResults);
-}
-
-async function getResource(requestContext: McmaApiRequestContext) {
-    const table = await dbTableProvider.get(TableName);
-    const resource = await table.get(requestContext.request.path);
-    if (resource) {
-        requestContext.setResponseBody(resource);
-    } else {
-        requestContext.setResponseResourceNotFound();
-    }
-}
 
 const workflowExecutionRoutes = new McmaApiRouteCollection()
     .addRoute("GET", "/workflows/{workflowId}/executions", queryCollection)

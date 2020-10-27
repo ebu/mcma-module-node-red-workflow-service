@@ -1,6 +1,5 @@
-export * from "./npm-install";
+export * from "./manage-operation";
 export * from "./process-job-assignment";
 export * from "./register-workflow";
-export * from "./setup-config";
 export * from "./update-job-assignment";
 export * from "./unregister-workflow";

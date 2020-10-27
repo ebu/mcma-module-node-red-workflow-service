@@ -1,15 +1,13 @@
-import { readFileSync, writeFileSync } from "fs";
-import { execSync } from "child_process";
-import { ECS } from "aws-sdk";
 import * as dirTree from "directory-tree";
 
-import { McmaException } from "@mcma/core";
-import { HttpStatusCode, McmaApiRequestContext, McmaApiRouteCollection } from "@mcma/api";
+import { JobStatus, McmaException } from "@mcma/core";
+import { McmaApiRequestContext, McmaApiRouteCollection } from "@mcma/api";
 import { invokeLambdaWorker } from "@mcma/aws-lambda-worker-invoker";
+import { dbTableProvider, getResource, queryCollection, } from "./common";
 
-const ecs = new ECS();
+import { ManageOperation } from "@local/common";
 
-const { EcsClusterId, EcsNodeRedServiceName, WorkerFunctionId } = process.env;
+const { PublicUrl, TableName, WorkerFunctionId } = process.env;
 
 async function listStorage(requestContext: McmaApiRequestContext) {
     const tree = dirTree("/mnt/nodered");
@@ -17,43 +15,31 @@ async function listStorage(requestContext: McmaApiRequestContext) {
     requestContext.setResponseBody(tree);
 }
 
-async function getSettings(requestContext: McmaApiRequestContext) {
-    const buf = readFileSync("/mnt/nodered/settings.js");
+async function handleManageOperationEndpoint(requestContext: McmaApiRequestContext, name: string, input?: { [key: string]: any }) {
+    let table = await dbTableProvider.get(TableName);
 
-    requestContext.setResponseBody(buf.toString());
-    requestContext.response.headers["Content-Type"] = "application/javascript";
-}
+    const databaseId = "/manage/operations/" + Date.now();
+    const manageOperation = new ManageOperation({
+        name: name,
+        status: JobStatus.Running,
+    });
+    manageOperation.onCreate(PublicUrl + databaseId);
+    await table.put(databaseId, manageOperation);
 
-async function setSettings(requestContext: McmaApiRequestContext) {
-    writeFileSync("/mnt/nodered/settings.js", requestContext.request.body);
+    input = input ?? {};
+    input.databaseId = databaseId;
 
-    requestContext.setResponseStatusCode(HttpStatusCode.NoContent);
-}
-
-async function resetService(requestContext: McmaApiRequestContext) {
-    execSync("rm -rf /mnt/nodered/* /mnt/nodered/.[!.]* /mnt/nodered/.??*");
-
-    await restartService(requestContext);
-}
-
-async function setupConfig(requestContext: McmaApiRequestContext) {
     await invokeLambdaWorker(WorkerFunctionId, {
-        operationName: "SetupConfig",
-        input: {},
+        operationName: "ManageOperation",
+        input,
         tracker: requestContext.getTracker()
     });
 
-    requestContext.setResponseStatusCode(HttpStatusCode.Accepted);
+    requestContext.setResponseResourceCreated(manageOperation);
 }
 
-async function restartService(requestContext: McmaApiRequestContext) {
-    await ecs.updateService({
-        service: EcsNodeRedServiceName,
-        cluster: EcsClusterId,
-        forceNewDeployment: true
-    }).promise();
-
-    requestContext.setResponseStatusCode(HttpStatusCode.Accepted);
+async function resetConfig(requestContext: McmaApiRequestContext) {
+    await handleManageOperationEndpoint(requestContext, "ResetConfig");
 }
 
 async function npmInstall(requestContext: McmaApiRequestContext) {
@@ -68,23 +54,17 @@ async function npmInstall(requestContext: McmaApiRequestContext) {
         throw new McmaException("Invalid input");
     }
 
-    await invokeLambdaWorker(WorkerFunctionId, {
-        operationName: "NpmInstall",
-        input: {
-            base64,
-            packages,
-        },
-        tracker: requestContext.getTracker()
-    });
+    await handleManageOperationEndpoint(requestContext, "NpmInstall", { base64, packages });
+}
 
-    requestContext.setResponseStatusCode(HttpStatusCode.Accepted);
+async function restartService(requestContext: McmaApiRequestContext) {
+    await handleManageOperationEndpoint(requestContext, "RestartService");
 }
 
 export const manageRoutes = new McmaApiRouteCollection()
-    .addRoute("GET", "/manage/list-storage", listStorage)
-    .addRoute("GET", "/manage/settings", getSettings)
-    .addRoute("PUT", "/manage/settings", setSettings)
-    .addRoute("POST", "/manage/setup-config", setupConfig)
-    .addRoute("POST", "/manage/reset-service", resetService)
+    .addRoute("POST", "/manage/reset-config", resetConfig)
+    .addRoute("POST", "/manage/npm-install", npmInstall)
     .addRoute("POST", "/manage/restart-service", restartService)
-    .addRoute("POST", "/manage/npm-install", npmInstall);
+    .addRoute("GET", "/manage/list-storage", listStorage)
+    .addRoute("GET", "/manage/operations", queryCollection)
+    .addRoute("GET", "/manage/operations/{operationId}", getResource);

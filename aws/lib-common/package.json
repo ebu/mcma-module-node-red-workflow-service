@@ -1,5 +1,5 @@
 {
-    "name": "@local/node-red",
+    "name": "@local/common",
     "version": "0.0.0",
     "description": "Local helper library for sharing code between api-handler and worker",
     "private": true,
