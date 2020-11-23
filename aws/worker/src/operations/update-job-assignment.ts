@@ -2,8 +2,7 @@ import { ProcessJobAssignmentHelper, ProviderCollection, WorkerRequest } from "@
 import { JobStatus, McmaException, onResourceUpsert, ProblemDetail, ProblemDetailProperties, WorkflowJob } from "@mcma/core";
 
 import { NodeRedWorkflowExecutionProperties } from "@local/common";
-
-const { TableName } = process.env;
+import { getTableName } from "@mcma/data";
 
 export async function updateJobAssignment(providers: ProviderCollection, workerRequest: WorkerRequest, context: { awsRequestId: string }) {
     const logger = workerRequest.logger;
@@ -18,12 +17,14 @@ export async function updateJobAssignment(providers: ProviderCollection, workerR
         throw new McmaException("request.input does not specify a jobAssignmentDatabaseId");
     }
 
-    const table = await providers.dbTableProvider.get(TableName);
+    const table = await providers.dbTableProvider.get(getTableName());
     const resourceManager = providers.resourceManagerProvider.get();
     const jobAssignmentHelper = new ProcessJobAssignmentHelper<WorkflowJob>(table, resourceManager, workerRequest);
 
-    const mutex = table.createMutex(workerRequest.input.jobAssignmentDatabaseId, context.awsRequestId);
-
+    const mutex = table.createMutex({
+        name: workerRequest.input.jobAssignmentDatabaseId,
+        holder: context.awsRequestId
+    });
     await mutex.lock();
     try {
         await jobAssignmentHelper.initialize();

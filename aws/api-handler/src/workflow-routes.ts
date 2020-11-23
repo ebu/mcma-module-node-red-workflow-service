@@ -2,13 +2,14 @@ import * as objectHash from "object-hash";
 
 import { McmaResource } from "@mcma/core";
 import { DefaultRouteCollection, HttpStatusCode, McmaApiRequestContext, McmaApiRouteCollection } from "@mcma/api";
-import { invokeLambdaWorker } from "@mcma/aws-lambda-worker-invoker";
+import { LambdaWorkerInvoker } from "@mcma/aws-lambda-worker-invoker";
 
 import { NodeRedNode, NodeRedWorkflow } from "@local/common";
 
 import { dbTableProvider, getResource, queryCollection } from "./common";
+import { getWorkerFunctionId } from "@mcma/worker-invoker";
 
-const { WorkerFunctionId } = process.env;
+const workerInvoker = new LambdaWorkerInvoker();
 
 async function onBeforeWorkflowInsertUpdate(requestContext: McmaApiRequestContext): Promise<boolean> {
     if (!requestContext.hasRequestBody()) {
@@ -31,7 +32,7 @@ async function onBeforeWorkflowInsertUpdate(requestContext: McmaApiRequestContex
 }
 
 async function onAfterWorkflowInsertUpdate(requestContext: McmaApiRequestContext, resource: McmaResource) {
-    await invokeLambdaWorker(WorkerFunctionId, {
+    await workerInvoker.invoke(getWorkerFunctionId(), {
         operationName: "RegisterWorkflow",
         input: {
             workflow: resource
@@ -41,7 +42,7 @@ async function onAfterWorkflowInsertUpdate(requestContext: McmaApiRequestContext
 }
 
 async function onWorkflowDelete(requestContext: McmaApiRequestContext, resource: McmaResource) {
-    await invokeLambdaWorker(WorkerFunctionId, {
+    await workerInvoker.invoke(getWorkerFunctionId(), {
         operationName: "UnregisterWorkflow",
         input: {
             workflow: resource

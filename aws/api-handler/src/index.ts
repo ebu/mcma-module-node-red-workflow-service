@@ -3,7 +3,7 @@ import { DefaultJobRouteCollection, McmaApiRouteCollection } from "@mcma/api";
 import { DynamoDbTableProvider } from "@mcma/aws-dynamodb";
 import { AwsCloudWatchLoggerProvider } from "@mcma/aws-logger";
 import { ApiGatewayApiController } from "@mcma/aws-api-gateway";
-import { invokeLambdaWorker } from "@mcma/aws-lambda-worker-invoker";
+import { LambdaWorkerInvoker } from "@mcma/aws-lambda-worker-invoker";
 
 import { manageRoutes } from "./manage-routes";
 import { workflowRoutes } from "./workflow-routes";
@@ -13,7 +13,7 @@ const { LogGroupName } = process.env;
 const loggerProvider = new AwsCloudWatchLoggerProvider("node-red-workflow-service-api-handler", LogGroupName);
 const dbTableProvider = new DynamoDbTableProvider();
 
-const jobAssignmentRoutes = new DefaultJobRouteCollection(dbTableProvider, invokeLambdaWorker);
+const jobAssignmentRoutes = new DefaultJobRouteCollection(dbTableProvider, new LambdaWorkerInvoker());
 
 const routes = new McmaApiRouteCollection()
     .addRoutes(jobAssignmentRoutes)

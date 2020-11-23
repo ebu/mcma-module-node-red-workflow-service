@@ -21,12 +21,13 @@ resource "aws_cloudwatch_log_group" "main" {
 #########################
 
 module "service_registry_aws" {
-  source = "https://ch-ebu-mcma-module-repository.s3.eu-central-1.amazonaws.com/ebu/service-registry/aws/0.13.16/module.zip"
+  source = "https://ch-ebu-mcma-module-repository.s3.eu-central-1.amazonaws.com/ebu/service-registry/aws/0.13.18/module.zip"
+
+  name = "${var.global_prefix}-service-registry"
 
   aws_account_id = var.aws_account_id
   aws_region     = var.aws_region
   log_group      = aws_cloudwatch_log_group.main
-  module_prefix  = "${var.global_prefix}-service-registry"
   stage_name     = var.environment_type
 }
 
@@ -39,15 +40,17 @@ output log_group {
 #########################
 
 module "job_processor_aws" {
-  source = "https://ch-ebu-mcma-module-repository.s3.eu-central-1.amazonaws.com/ebu/job-processor/aws/0.13.16/module.zip"
+  source = "https://ch-ebu-mcma-module-repository.s3.eu-central-1.amazonaws.com/ebu/job-processor/aws/0.13.18/module.zip"
 
-  aws_account_id   = var.aws_account_id
-  aws_region       = var.aws_region
-  log_group        = aws_cloudwatch_log_group.main
-  module_prefix    = "${var.global_prefix}-job-processor"
-  stage_name       = var.environment_type
+  name = "${var.global_prefix}-job-processor"
+
+  aws_account_id = var.aws_account_id
+  aws_region     = var.aws_region
+  log_group      = aws_cloudwatch_log_group.main
+  stage_name     = var.environment_type
+  dashboard_name = var.global_prefix
+
   service_registry = module.service_registry_aws
-  dashboard_name   = var.global_prefix
 }
 
 ########################################

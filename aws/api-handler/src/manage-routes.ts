@@ -2,30 +2,32 @@ import * as dirTree from "directory-tree";
 import * as mime from "mime-types";
 
 import { JobStatus, McmaException } from "@mcma/core";
-import { McmaApiRequestContext, McmaApiRouteCollection } from "@mcma/api";
-import { invokeLambdaWorker } from "@mcma/aws-lambda-worker-invoker";
+import { getPublicUrl, McmaApiRequestContext, McmaApiRouteCollection } from "@mcma/api";
+import { LambdaWorkerInvoker } from "@mcma/aws-lambda-worker-invoker";
 import { dbTableProvider, getResource, queryCollection, } from "./common";
 
 import { ManageOperation } from "@local/common";
 import { existsSync, lstatSync, readFileSync } from "fs";
+import { getWorkerFunctionId } from "@mcma/worker-invoker";
+import { getTableName } from "@mcma/data";
 
-const { PublicUrl, TableName, WorkerFunctionId } = process.env;
+const workerInvoker = new LambdaWorkerInvoker();
 
 async function handleManageOperationEndpoint(requestContext: McmaApiRequestContext, name: string, input?: { [key: string]: any }) {
-    let table = await dbTableProvider.get(TableName);
+    let table = await dbTableProvider.get(getTableName());
 
     const databaseId = "/manage/operations/" + Date.now();
     const manageOperation = new ManageOperation({
         name: name,
         status: JobStatus.Running,
     });
-    manageOperation.onCreate(PublicUrl + databaseId);
+    manageOperation.onCreate(getPublicUrl() + databaseId);
     await table.put(databaseId, manageOperation);
 
     input = input ?? {};
     input.databaseId = databaseId;
 
-    await invokeLambdaWorker(WorkerFunctionId, {
+    await workerInvoker.invoke(getWorkerFunctionId(), {
         operationName: "ManageOperation",
         input,
         tracker: requestContext.getTracker()

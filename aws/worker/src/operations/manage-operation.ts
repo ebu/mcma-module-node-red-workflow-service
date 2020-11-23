@@ -8,14 +8,19 @@ import { ProviderCollection, WorkerRequest } from "@mcma/worker";
 import { ManageOperationProperties } from "@local/common";
 import { execSync } from "child_process";
 import { restartContainer } from "../utils";
-
-const { TableName, WorkerFunctionId } = process.env;
+import { getTableName } from "@mcma/data";
+import { getWorkerFunctionId } from "@mcma/worker-invoker";
 
 export async function manageOperation(providers: ProviderCollection, workerRequest: WorkerRequest, context: { awsRequestId: string }) {
     const logger = workerRequest.logger;
-    const table = await providers.dbTableProvider.get(TableName);
+    const table = await providers.dbTableProvider.get(getTableName());
 
-    const mutex = table.createMutex("manage-operation", context.awsRequestId, 300000);
+    const mutex = table.createMutex({
+        name: "manage-operation",
+        holder: context.awsRequestId,
+        lockTimeout: 300000,
+        logger
+    });
     await mutex.lock();
     try {
         const manageOperation = await table.get<ManageOperationProperties>(workerRequest.input.databaseId);
@@ -70,7 +75,7 @@ async function main() {
     const AWS = require("aws-sdk");
     const lambda = new AWS.Lambda();
     await lambda.invoke({
-        FunctionName: "${WorkerFunctionId}",
+        FunctionName: "${getWorkerFunctionId()}",
         InvocationType: "Event",
         LogType: "None",
         Payload: JSON.stringify({
@@ -119,7 +124,7 @@ async function main() {
     const { partitionKey, sortKey } = parsePartitionAndSortKeys(item.databaseId);
 
     await docClient.put({
-        TableName: "${TableName}",
+        TableName: "${getTableName()}",
         Item: {
             partition_key: partitionKey,
             sort_key: sortKey,

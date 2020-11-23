@@ -3,12 +3,11 @@ import * as RED from "@node-red/util";
 
 import { JobParameterBag, JobStatus, Logger, McmaException, ProblemDetail, WorkflowJob } from "@mcma/core";
 import { ProcessJobAssignmentHelper, ProviderCollection, WorkerRequest } from "@mcma/worker";
-import { DocumentDatabaseTable } from "@mcma/data";
+import { DocumentDatabaseTable, getTableName } from "@mcma/data";
 
 import { NodeRedFlow, NodeRedFlowConfig, NodeRedFlowNode, NodeRedWorkflow, NodeRedWorkflowExecution } from "@local/common";
 import { getContainerIpAddress } from "../utils";
-
-const { TableName, PublicUrl } = process.env;
+import { getPublicUrl } from "@mcma/api";
 
 export async function processJobAssignment(providers: ProviderCollection, workerRequest: WorkerRequest, context: { awsRequestId: string }) {
     if (!workerRequest) {
@@ -21,11 +20,14 @@ export async function processJobAssignment(providers: ProviderCollection, worker
         throw new McmaException("request.input does not specify a jobAssignmentDatabaseId");
     }
 
-    const dbTable = await providers.dbTableProvider.get(TableName);
+    const dbTable = await providers.dbTableProvider.get(getTableName());
     const resourceManager = providers.resourceManagerProvider.get();
     const jobAssignmentHelper = new ProcessJobAssignmentHelper<WorkflowJob>(dbTable, resourceManager, workerRequest);
 
-    const mutex = dbTable.createMutex(workerRequest.input.jobAssignmentDatabaseId, context.awsRequestId);
+    const mutex = dbTable.createMutex({
+        name: workerRequest.input.jobAssignmentDatabaseId,
+        holder: context.awsRequestId
+    });
 
     await mutex.lock();
     try {
@@ -39,7 +41,7 @@ export async function processJobAssignment(providers: ProviderCollection, worker
             throw new McmaException("Job has type '" + jobAssignmentHelper.job["@type"] + "', which does not match expected job type 'WorkflowJob'.");
         }
 
-        if (!jobAssignmentHelper.profile.custom?.nodeRedWorkflowId?.startsWith(PublicUrl)) {
+        if (!jobAssignmentHelper.profile.custom?.nodeRedWorkflowId?.startsWith(getPublicUrl())) {
             throw new McmaException("Job profile '" + jobAssignmentHelper.profile.name + "' is not supported.");
         }
 
@@ -74,10 +76,10 @@ async function executeWorkflow(providers: ProviderCollection, jobAssignmentHelpe
         logger.info(`Processing ${jobAssignmentHelper.profile.name} request with jobInput:`);
         logger.info(jobAssignmentHelper.jobInput);
 
-        const table = await providers.dbTableProvider.get(TableName);
+        const table = await providers.dbTableProvider.get(getTableName());
 
         const workflowId: string = jobAssignmentHelper.profile.custom.nodeRedWorkflowId;
-        const workflowDatabaseId = workflowId.substring(PublicUrl.length);
+        const workflowDatabaseId = workflowId.substring(getPublicUrl().length);
 
         let workflow: NodeRedWorkflow;
 
@@ -121,7 +123,10 @@ async function executeWorkflow(providers: ProviderCollection, jobAssignmentHelpe
         await syncWorkflowMonitorToService(noderedService, logger);
 
         logger.info(`Invoking workflow ${workflow.name}`);
-        const workflowMutex = table.createMutex(workflowDatabaseId, context.awsRequestId);
+        const workflowMutex = table.createMutex({
+            name: workflowDatabaseId,
+            holder: context.awsRequestId
+        });
         await workflowMutex.lock();
         try {
             await invokeNodeRedFlow(noderedService, workflowDatabaseId, workflow, table, jobAssignmentHelper);
@@ -333,7 +338,7 @@ async function invokeNodeRedFlow(noderedService: AxiosInstance, workflowDatabase
         jobAssignmentId: jobAssignmentHelper.jobAssignment.id
     });
     const workflowExecutionDatabaseId = `${workflowDatabaseId}/executions/${workflowExecution.dateStarted.getTime()}`;
-    workflowExecution.onCreate(PublicUrl + workflowExecutionDatabaseId);
+    workflowExecution.onCreate(getPublicUrl() + workflowExecutionDatabaseId);
     await table.put(workflowExecutionDatabaseId, workflowExecution);
 
     const flow = await getFlowByHash(noderedService, workflow.hash);

@@ -7,7 +7,10 @@ export async function unregisterWorkflow(providers: ProviderCollection, workerRe
     const logger = workerRequest.logger;
     const table = await providers.dbTableProvider.get(TableName);
 
-    const mutex = table.createMutex("service-registry", context.awsRequestId);
+    const mutex = table.createMutex({
+        name: "service-registry",
+        holder: context.awsRequestId
+    });
     await mutex.lock();
     try {
         logger.info(workerRequest.input);
